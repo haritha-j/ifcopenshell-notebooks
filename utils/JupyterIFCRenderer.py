@@ -77,7 +77,7 @@ class JupyterIFCRenderer(JupyterRenderer):
                 self.colorcache[pdct_shape.geometry] = color
                 
                 # any renderer (threejs, x3dom, jupyter, qt5 based etc.)
-                self.DisplayShape(pdct_shape.geometry, shape_color = color, transparency=False, opacity=0.5)
+                self.DisplayShape(pdct_shape.geometry, shape_color = color, transparency=True, opacity=0.3)
 #               
         for ent in hide_ents:
             to_hide = model.by_type(ent)
@@ -163,9 +163,9 @@ class JupyterIFCRenderer(JupyterRenderer):
 
     def setAllTransparent(self):
         for shp in self._displayed_pickable_objects.children:
-            shp.material.opacity = 0.0001
+            shp.material.opacity = 0.5
             shp.material.transparent = True
-            shp.material.alpha = 0.1
+            shp.material.alpha = 0.4
     
     def setTransparentTrue(self, product):
         mesh = self._meshdict.get(product, None)
