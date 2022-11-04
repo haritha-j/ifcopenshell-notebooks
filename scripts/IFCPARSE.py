@@ -1,3 +1,9 @@
+""" 
+helper script to clean up IFC file extracted from Navisworks, by removing 
+   a. elements with a certain name
+   b. elements which belong to a branch which has other elements with a certain name
+"""
+
 import ifcopenshell
 from ifcopenshell.util.selector import Selector
 

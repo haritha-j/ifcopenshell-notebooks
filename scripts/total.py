@@ -1,3 +1,5 @@
+# Navispythonshell script to extract the structure of elements in a nwd file
+
 import json
 
 

@@ -1,3 +1,5 @@
+# merge multiple IFC files together
+
 import ifcopenshell
 
 new_file = ifcopenshell.file(schema='IFC4')
