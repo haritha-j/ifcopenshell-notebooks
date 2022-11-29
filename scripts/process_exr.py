@@ -73,21 +73,26 @@ if __name__ == '__main__':
     width = int(intrinsics[0, 2] * 2)
     height = int(intrinsics[1, 2] * 2)
 
+    depth_dir = os.path.join(args.output_dir, 'depth')
+    pcd_dir = os.path.join(args.output_dir, 'pcd')
+    os.makedirs(depth_dir, exist_ok=True)
+    os.makedirs(pcd_dir, exist_ok=True)
+
     for model_id in model_list:
-        depth_dir = os.path.join(args.output_dir, 'depth', model_id)
-        pcd_dir = os.path.join(args.output_dir, 'pcd', model_id)
-        os.makedirs(depth_dir, exist_ok=True)
-        os.makedirs(pcd_dir, exist_ok=True)
-        for i in range(num_scans):
-            exr_path = os.path.join(args.output_dir, 'exr', model_id, '%d.exr' % i)
-            pose_path = os.path.join(args.output_dir, 'pose', model_id, '%d.txt' % i)
+        element_name = model_id.split(".")[0]
+        print(element_name)
 
-            depth = read_exr(exr_path, height, width)
-            depth_img = geometry.Image(np.uint16(depth * 1000))
-            io.write_image(os.path.join(depth_dir, '%d.png' % i), depth_img)
 
-            pose = np.loadtxt(pose_path)
-            points = depth2pcd(depth, intrinsics, pose)
-            pcd = geometry.PointCloud()
-            pcd.points = utility.Vector3dVector(points)
-            io.write_point_cloud(os.path.join(pcd_dir, '%d.pcd' % i), pcd)
+        exr_path = os.path.join(args.output_dir, 'exr', model_id)
+        pose_path = os.path.join(args.output_dir, 'pose', element_name+'.txt')
+
+        depth = read_exr(exr_path, height, width)
+        depth_img = geometry.Image(np.uint16(depth * 1000))
+        io.write_image(os.path.join(depth_dir, element_name+'.png'), depth_img)
+
+        pose = np.loadtxt(pose_path)
+        points = depth2pcd(depth, intrinsics, pose)
+        pcd = geometry.PointCloud()
+        pcd.points = utility.Vector3dVector(points)
+        print(pcd.points)
+        io.write_point_cloud(os.path.join(pcd_dir, element_name+'.pcd'), pcd)

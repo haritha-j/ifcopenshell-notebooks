@@ -1,4 +1,7 @@
 '''
+Convert obj objects into partially occluded EXR images
+
+
 MIT License
 
 Copyright (c) 2018 Wentao Yuan
@@ -99,13 +102,14 @@ if __name__ == '__main__':
     os.system('rm -rf %s' % output_dir)
     os.makedirs(output_dir)
     np.savetxt(os.path.join(output_dir, 'intrinsics.txt'), intrinsics, '%f')
+    exr_dir = os.path.join(output_dir, 'exr')
+    pose_dir = os.path.join(output_dir, 'pose')
+    os.makedirs(exr_dir)
+    os.makedirs(pose_dir)
 
     for model_id in model_list:
         start = time.time()
-        exr_dir = os.path.join(output_dir, 'exr', model_id)
-        pose_dir = os.path.join(output_dir, 'pose', model_id)
-        os.makedirs(exr_dir)
-        os.makedirs(pose_dir)
+
 
         #Redirect output to log file
         # old_os_out = os.dup(1)
@@ -113,7 +117,8 @@ if __name__ == '__main__':
         # os.open('blender.log', os.O_WRONLY)
 
         # Import mesh model
-        model_path = os.path.join(model_dir, model_id, 'model.obj')
+        model_path = os.path.join(model_dir, model_id)
+        element_name = model_id.split(".")[0]
 
         bpy.ops.import_scene.obj(filepath=model_path)
         # Rotate model by 90 degrees around x-axis (z-up => y-up) to match ShapeNet's coordinates
@@ -124,10 +129,9 @@ if __name__ == '__main__':
             scene.frame_set(i)
             pose = random_pose()
             camera.matrix_world = mathutils.Matrix(pose)
-            print("D")
-            output.file_slots[0].path = os.path.join(exr_dir, '#.exr')
+            output.file_slots[0].path = os.path.join(exr_dir, element_name+'_'+'#.exr')
             bpy.ops.render.render(write_still=True)
-            np.savetxt(os.path.join(pose_dir, '%d.txt' % i), pose, '%f')
+            np.savetxt(os.path.join(pose_dir, element_name+'_'+'%d.txt' % i), pose, '%f')
 
         # Clean up
         bpy.ops.object.delete()
