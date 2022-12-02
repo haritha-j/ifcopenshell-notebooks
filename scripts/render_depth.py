@@ -48,7 +48,8 @@ def random_pose():
                    [0, 0, 1]])
     R = np.dot(Rz, np.dot(Ry, Rx))
     # Set camera pointing to the origin and 1 unit away from the origin
-    t = np.expand_dims(R[:, 2], 1)
+    t = np.expand_dims(R[:, 2], 1)*10
+    print("t", t)
     pose = np.concatenate([np.concatenate([R, t], 1), [[0, 0, 0, 1]]], 0)
     return pose
 
@@ -85,7 +86,7 @@ def setup_blender(width, height, focal_length):
 if __name__ == '__main__':
     model_dir = sys.argv[-2]
     output_dir = sys.argv[-1]
-    num_scans = 4
+    num_scans = 16
 
     width = 160
     height = 120

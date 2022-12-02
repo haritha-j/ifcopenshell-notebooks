@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     # with open(args.list_file) as file:
     #     model_list = file.read().splitlines()
-    num_scans = 4
+    num_scans = 16
     model_list = os.listdir(args.model_list)
 
     intrinsics = np.loadtxt(args.intrinsics_file)
