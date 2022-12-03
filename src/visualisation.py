@@ -28,9 +28,10 @@ def CreateBeam(ifcFile, container, name, section, L, position,
     B1_Placement = ifcFile.createIfcLocalPlacement(
         container.ObjectPlacement,B1_Axis2Placement)
     B1.ObjectPlacement=B1_Placement
-    B1_ExtrudePlacement = ifcFile.createIfcAxis2Placement3D(
-        ifcFile.createIfcCartesianPoint ( (0.,0.,0.) )   )
-   
+    B1Point = ifcFile.createIfcCartesianPoint ( (0.,0.,0.) )
+    B1_ExtrudePlacement = ifcFile.createIfcAxis2Placement3D(B1Point)
+    #print (B1Point, B1_ExtrudePlacement, B1_Placement)
+    
     B1_Extruded=ifcFile.createIfcExtrudedAreaSolid()
     B1_Extruded.SweptArea=section
     B1_Extruded.Position=B1_ExtrudePlacement
@@ -59,14 +60,73 @@ def CreateBeam(ifcFile, container, name, section, L, position,
         create_guid(),owner_history)
     Flr1_Container.RelatedElements=[B1]
     Flr1_Container.RelatingStructure= container
+
+# create an IFC elbow
+def CreateElbow(ifcFile, container, name, section, a, x, y, axis_dir, position, 
+               direction, owner_history, context, colour=None):
+    Z = 0.,0.,1.
+    X = 1.,0.,0.
+    #print('length', L)
+    B1 = ifcFile.createIfcPipeFitting(create_guid(),owner_history , name)
+    B1.ObjectType ='elbow'
+    
+    #print(type(position[0]))
+    B1_Point =ifcFile.createIfcCartesianPoint ( tuple(position) ) 
+    #B1_Point =ifcFile.createIfcCartesianPoint ( (0.0,0.0,0.0) ) 
+    B1_Axis2Placement = ifcFile.createIfcAxis2Placement3D(B1_Point)
+    B1_Axis2Placement.Axis = ifcFile.createIfcDirection(direction)
+    B1_Axis2Placement.RefDirection =ifcFile.createIfcDirection(
+        np.cross(direction, Z).tolist())
+
+
+    B1_Placement = ifcFile.createIfcLocalPlacement(
+        container.ObjectPlacement,B1_Axis2Placement)
+    B1.ObjectPlacement=B1_Placement
+    B1Point = ifcFile.createIfcCartesianPoint ( (0.,0.,0.) )
+    B1_ExtrudePlacement = ifcFile.createIfcAxis2Placement3D(B1Point)
+    #print (B1Point, B1_ExtrudePlacement, B1_Placement)
+
+    B1Point2 = ifcFile.createIfcCartesianPoint ( (x,y,0.) )
+    B1_Axis1Placement = ifcFile.createIfcAxis1Placement(B1Point2)
+    B1_Axis1Placement.Axis = ifcFile.createIfcDirection((axis_dir[0], axis_dir[1], 0.))
+    
+    B1_Extruded=ifcFile.createIfcRevolvedAreaSolid()
+    B1_Extruded.SweptArea=section
+    B1_Extruded.Position=B1_ExtrudePlacement
+    B1_Extruded.Axis = B1_Axis1Placement
+    B1_Extruded.Angle = a
+    
+    # add colour
+    if colour is not None:
+        shade = ifcFile.createIfcSurfaceStyleRendering(colour)
+        surfaceStyle = ifcFile.createIfcSurfaceStyle(colour.Name, "BOTH",(shade,))
+        presStyleAssign = ifcFile.createIfcPresentationStyleAssignment((surfaceStyle,))
+        ifcFile.createIfcStyledItem(B1_Extruded, (presStyleAssign,), colour.Name)
+
+
+    B1_Repr=ifcFile.createIfcShapeRepresentation()
+    B1_Repr.ContextOfItems=context
+    B1_Repr.RepresentationIdentifier = 'Body'
+    B1_Repr.RepresentationType = 'SweptSolid'
+    B1_Repr.Items = [B1_Extruded]
+    
+    B1_DefShape=ifcFile.createIfcProductDefinitionShape()
+    B1_DefShape.Representations=[B1_Repr]
+    B1.Representation=B1_DefShape
+    
+    Flr1_Container = ifcFile.createIfcRelContainedInSpatialStructure(
+        create_guid(),owner_history)
+    Flr1_Container.RelatedElements=[B1]
+    Flr1_Container.RelatingStructure= container
     
     
 def Circle_Section(r, ifcfile):
     B1_Axis2Placement2D =ifcfile.createIfcAxis2Placement2D( 
                           ifcfile.createIfcCartesianPoint( (0.,0.,0.) ) )
-    B1_AreaProfile = ifcfile.createIfcCircleProfileDef("AREA")
+    B1_AreaProfile = ifcfile.createIfcCircleHollowProfileDef("AREA")
     B1_AreaProfile.Position = B1_Axis2Placement2D 
     B1_AreaProfile.Radius = r
+    B1_AreaProfile.WallThickness  = 2
     return B1_AreaProfile
 
     
