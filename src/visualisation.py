@@ -4,6 +4,7 @@ import math
 import numpy as np
 import ifcopenshell
 import uuid
+import json
 
 from src.geometry import get_oriented_bbox, get_corner, sq_distance
 
@@ -120,21 +121,18 @@ def CreateElbow(ifcFile, container, name, section, a, x, y, axis_dir, position,
     Flr1_Container.RelatingStructure= container
     
     
-def Circle_Section(r, ifcfile):
+def Circle_Section(r, ifcfile, fill=False):
     B1_Axis2Placement2D =ifcfile.createIfcAxis2Placement2D( 
                           ifcfile.createIfcCartesianPoint( (0.,0.,0.) ) )
-    B1_AreaProfile = ifcfile.createIfcCircleHollowProfileDef("AREA")
+    if fill:
+        B1_AreaProfile = ifcfile.createIfcCircleProfileDef("AREA")
+    else:
+        B1_AreaProfile = ifcfile.createIfcCircleHollowProfileDef("AREA")
+        B1_AreaProfile.WallThickness  = 2
+
     B1_AreaProfile.Position = B1_Axis2Placement2D 
     B1_AreaProfile.Radius = r
-    B1_AreaProfile.WallThickness  = 2
     return B1_AreaProfile
-
-    
-# def draw_sphere(point, radius, colour, viewer):
-#     point = gp_Pnt(point)
-#     ball = BRepPrimAPI_MakeSphere(point, radius).Shape()
-#     viewer.DisplayShape(ball, shape_color = colour, 
-#                         transparency=True, opacity=0.8)
 
 
 def draw_cylinder(p1, p2, radius, colour,  element_name1, element_name2, 

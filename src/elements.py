@@ -32,8 +32,12 @@ def setup_ifc_file(blueprint):
 # return axis aligned bbox and centerpoint of any ifc element through mesh conversion (expensive)
 def generic_element_bbox(ifc, element_type):    
     settings = ifcopenshell.geom.settings()
+    settings.set(settings.WELD_VERTICES, False)
+    #settings.set(settings.USE_BREP_DATA, True)
     pipe = ifc.by_type(element_type)[0]
+    #print("X")
     shape = ifcopenshell.geom.create_shape(settings, pipe)
+    #print("Y")
     verts = shape.geometry.verts
     
     x = [verts[i] for i in range(0, len(verts), 3)]
@@ -47,18 +51,18 @@ def generic_element_bbox(ifc, element_type):
     bbox = ((x_max - x_min), (y_max - y_min), (z_max - z_min))
 
     return bbox, center
+    #return (2.0,2.0,2.0),(0.0,0.0,0.0)
 
 
 # generate Ifc Pipe fitting from parameters
-def create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info):
-    cross_section = Circle_Section(r=r, ifcfile=ifc)
-    green = ifc.createIfcColourRgb('green', Red=0.0, Green=0.9, Blue=0.0)
+def create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info, fill=False):
+    cross_section = Circle_Section(r=r, ifcfile=ifc, fill=fill)
 
     beam = CreateElbow(ifc, container=ifc_info['floor'], name="elbow", 
                       section=cross_section, a=a, position=p,
                       direction=d, x=x, y=y, axis_dir=axis_dir, 
                        owner_history=ifc_info["owner_history"],
-                      context=ifc_info["context"], colour=green)
+                      context=ifc_info["context"], colour=None)
 
 
 # return axis aligned bbox, centerpoint of elbow
@@ -73,10 +77,12 @@ def elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint):
         "project": project,
        "context": context, 
        "floor": floor}
+    print(r, a, d, p, x, y)
+    create_IfcElbow(r, a, d, p, x, y, axis_dir, temp, temp_info, fill=True)
     
-    create_IfcElbow(r, a, d, p, x, y, axis_dir, temp, temp_info)
-    
-    return generic_element_bbox(temp, "IfcPipeFitting")
+    bbox, center = generic_element_bbox(temp, "IfcPipeFitting")
+    del temp
+    return bbox, center
 
 
 # generate a random synthetic elbow
@@ -107,11 +113,14 @@ def create_elbow(config,  ifc, ifc_info, blueprint):
     axis_dir = (math.cos(axis_ang), math.sin(axis_ang))
     
     # transform points to the elbow center and normalize
-#     bbox, centerpoint = elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint)
-#     bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
-#     p = [p[i] - centerpoint[i]*1000 for i in range(3)]
-#     r, x, y = 10*r/bbox_l2, 10*x/bbox_l2, 10*y/bbox_l2
-    
+    bbox, centerpoint = elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint)
+    bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
+    print('p', p, 'c', centerpoint)
+    #p = [p[i] - centerpoint[i]*10000/bbox_l2 for i in range(3)]
+    p = [-1* centerpoint[i]*10000/bbox_l2 for i in range(3)]
+    r, x, y = 10*r/bbox_l2, 10*x/bbox_l2, 10*y/bbox_l2
+    print('p', p, 'c', centerpoint, r, x)
+
 #     print('bb', bbox, 'c', centerpoint, bbox_l2)
 #     bbox2, centerpoint2 = elbow_bbox(r, a, d, p, x, y, axis_dir)
 #     print('bb', bbox2, 'c', centerpoint2)
