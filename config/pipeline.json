@@ -5,8 +5,8 @@
             1000
         ],
         "angle_range": [
-            0,
-            3.1416
+            30,
+            180
         ],
         "coordinate_range": [
             [
@@ -35,6 +35,16 @@
                 0.0,
                 1.0
             ]
+        ], 
+
+        "curvature_range": [
+                2.0,
+                10.0
+        ],
+
+        "axis_angle_range": [
+                0,
+                3.1416
         ]
     },
     "pipe": {

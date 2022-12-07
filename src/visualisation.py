@@ -5,6 +5,9 @@ import numpy as np
 import ifcopenshell
 import uuid
 import json
+import open3d as o3d
+from OCC.Core.gp import gp_Pnt
+from utils.JupyterIFCRenderer import JupyterIFCRenderer
 
 from src.geometry import get_oriented_bbox, get_corner, sq_distance
 
@@ -198,4 +201,12 @@ def draw_relationship (element_name1, element1, element_name2,
                   element_name1, element_name2, ifc, floor, owner_history, context)
 #     draw_sphere(corner1, radius, colour, viewer)
 #     draw_sphere(corner2, radius, 'red', viewer)
- 
+
+
+
+# visualize ifc model and point cloud simultaneously
+def vis_ifc_and_cloud(ifc, cloud, colour="#abe000"):
+  viewer = JupyterIFCRenderer(ifc, size=(400,300))
+  gp_pnt_list = [gp_Pnt(k[0], k[1], k[2]) for k in cloud.points]
+  viewer.DisplayShape(gp_pnt_list, '#abe000')
+  return viewer
