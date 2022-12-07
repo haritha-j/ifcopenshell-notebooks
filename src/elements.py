@@ -165,8 +165,13 @@ def pipe_bbox(r, l, d):
 # generate a random synthetic pipe
 def create_pipe(config,  ifc, ifc_info):
     # generate parameters
-    r = random.uniform(config['radius_range'][0], config['radius_range'][1])
-    l = random.uniform(config['length_range'][0], config['length_range'][1])
+    reject = True
+
+    while reject:
+        r = random.uniform(config['radius_range'][0], config['radius_range'][1])
+        l = random.uniform(config['length_range'][0], config['length_range'][1])
+        if (l/r > 2):
+            reject = False
     
     d = []
     for ax in config['extrusion_direction_range']:
@@ -181,7 +186,7 @@ def create_pipe(config,  ifc, ifc_info):
     # normalize bbox
     bbox = pipe_bbox(r,l,d)
     bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
-    r, l = 10000*r/bbox_l2, 10000*l/bbox_l2
+    r, l = 1000*r/bbox_l2, 1000*l/bbox_l2
     print(bbox_l2)
     #bbox2 = pipe_bbox(r,l,d)
     #print(bbox, bbox2, (bbox2[0]*bbox2[0] + bbox2[1]*bbox2[1] + bbox2[2]*bbox2[2]))
