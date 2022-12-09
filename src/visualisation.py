@@ -86,7 +86,7 @@ def CreateElbow(ifcFile, container, name, section, a, x, y, axis_dir, position,
     B1_Placement = ifcFile.createIfcLocalPlacement(
         container.ObjectPlacement,B1_Axis2Placement)
     B1.ObjectPlacement=B1_Placement
-    B1Point = ifcFile.createIfcCartesianPoint ( (0.,0.,0.) )
+    B1Point = ifcFile.createIfcCartesianPoint ( position )
     B1_ExtrudePlacement = ifcFile.createIfcAxis2Placement3D(B1Point)
     #print (B1Point, B1_ExtrudePlacement, B1_Placement)
 

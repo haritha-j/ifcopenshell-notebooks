@@ -51,7 +51,6 @@ def generic_element_bbox(ifc, element_type):
     bbox = ((x_max - x_min), (y_max - y_min), (z_max - z_min))
 
     return bbox, center
-    #return (2.0,2.0,2.0),(0.0,0.0,0.0)
 
 
 # generate Ifc Pipe fitting from parameters
@@ -77,7 +76,7 @@ def elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint):
         "project": project,
        "context": context, 
        "floor": floor}
-    print(r, a, d, p, x, y)
+    print('INIT PARAMS', r, a, d, p, x, y)
     create_IfcElbow(r, a, d, p, x, y, axis_dir, temp, temp_info, fill=True)
     
     bbox, center = generic_element_bbox(temp, "IfcPipeFitting")
@@ -99,7 +98,7 @@ def create_elbow(config,  ifc, ifc_info, blueprint):
 
     p = []
     for coord in config['coordinate_range']:
-        p.append(random.uniform(coord[0], coord[1]))
+        p.append(0.0)
         
     # generate points on a 2D ring from the origin
     axis_placement = random.uniform(config['curvature_range'][0], 
@@ -115,15 +114,16 @@ def create_elbow(config,  ifc, ifc_info, blueprint):
     # transform points to the elbow center and normalize
     bbox, centerpoint = elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint)
     bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
-    print('p', p, 'c', centerpoint)
+    #print('p', p, 'c', centerpoint, 'bbx', bbox_l2, bbox)
     #p = [p[i] - centerpoint[i]*10000/bbox_l2 for i in range(3)]
-    p = [-1* centerpoint[i]*10000/bbox_l2 for i in range(3)]
-    r, x, y = 10*r/bbox_l2, 10*x/bbox_l2, 10*y/bbox_l2
+    p = [-1* centerpoint[i]*1000/bbox_l2  for i in range(3)]
+
+    r, x, y = r/bbox_l2, x/bbox_l2, y/bbox_l2
     print('p', p, 'c', centerpoint, r, x)
 
-#     print('bb', bbox, 'c', centerpoint, bbox_l2)
-#     bbox2, centerpoint2 = elbow_bbox(r, a, d, p, x, y, axis_dir)
-#     print('bb', bbox2, 'c', centerpoint2)
+    print('bb befpre', bbox, 'c', centerpoint, bbox_l2)
+    bbox2, centerpoint2 = elbow_bbox(r, a, d, p, x, y, axis_dir,blueprint)
+    print('bb after', bbox2, 'c', centerpoint2)
 
     create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info)
     metadata = {'radius':r, "direction":d, "angle":a, "position":p, 
