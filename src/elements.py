@@ -111,23 +111,25 @@ def create_elbow(config,  ifc, ifc_info, blueprint):
     y = axis_placement * math.cos(axis_ang)
     axis_dir = (math.cos(axis_ang), math.sin(axis_ang))
     
-    # transform points to the elbow center and normalize
-    bbox, centerpoint = elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint)
-    bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
-    #print('p', p, 'c', centerpoint, 'bbx', bbox_l2, bbox)
-    #p = [p[i] - centerpoint[i]*10000/bbox_l2 for i in range(3)]
-    p = [-1* centerpoint[i]*1000/bbox_l2  for i in range(3)]
+    # # transform points to the elbow center and normalize
+    # bbox, centerpoint = elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint)
+    # bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
+    # #print('p', p, 'c', centerpoint, 'bbx', bbox_l2, bbox)
+    # #p = [p[i] - centerpoint[i]*10000/bbox_l2 for i in range(3)]
+    # #p = [-1* centerpoint[i]*1000/bbox_l2  for i in range(3)]
 
-    r, x, y = r/bbox_l2, x/bbox_l2, y/bbox_l2
-    print('p', p, 'c', centerpoint, r, x)
+    # r, x, y = r/bbox_l2, x/bbox_l2, y/bbox_l2
+    # print('p', p, 'c', centerpoint, r, x)
 
-    print('bb befpre', bbox, 'c', centerpoint, bbox_l2)
-    bbox2, centerpoint2 = elbow_bbox(r, a, d, p, x, y, axis_dir,blueprint)
-    print('bb after', bbox2, 'c', centerpoint2)
+    # print('bb befpre', bbox, 'c', centerpoint, bbox_l2)
+    # bbox2, centerpoint2 = elbow_bbox(r, a, d, p, x, y, axis_dir,blueprint)
+    # print('bb after', bbox2, 'c', centerpoint2)
 
     create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info)
+
     metadata = {'radius':r, "direction":d, "angle":a, "position":p, 
                 'axis_x':x, 'axis_y':y}
+    print(metadata)
     
     return metadata
 
