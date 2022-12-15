@@ -48,7 +48,7 @@ def random_pose():
                    [0, 0, 1]])
     R = np.dot(Rz, np.dot(Ry, Rx))
     # Set camera pointing to the origin and 1 unit away from the origin
-    t = np.expand_dims(R[:, 2], 1)*10
+    t = np.expand_dims(R[:, 2], 1)*1
     print("t", t)
     pose = np.concatenate([np.concatenate([R, t], 1), [[0, 0, 0, 1]]], 0)
     return pose
@@ -57,6 +57,7 @@ def random_pose():
 def setup_blender(width, height, focal_length):
     # camera
     camera = bpy.data.objects['Camera']
+    #camera.data.type = 'ORTHO'
     camera.data.angle = np.arctan(width / 2 / focal_length) * 2
 
     # render layer

@@ -91,12 +91,12 @@ def create_elbow(config,  ifc, ifc_info, blueprint, i):
     # r = 10.0
     # a = 30.0+10*i 
     a = random.uniform(config['angle_range'][0], config['angle_range'][1])
-    d = (1., 0., 0.)
-    # d = []
-    # for ax in config['axis_direction_range']:
-    #     d.append(random.uniform(ax[0], ax[1]))
-    # d_np = np.array(d)
-    # d = (d_np/np.linalg.norm(d_np)).tolist()
+    # d = (-1., 0., 0.)
+    d = []
+    for ax in config['axis_direction_range']:
+        d.append(random.uniform(ax[0], ax[1]))
+    d_np = np.array(d)
+    d = (d_np/np.linalg.norm(d_np)).tolist()
 
     p = []
     for coord in config['coordinate_range']:
@@ -125,7 +125,11 @@ def create_elbow(config,  ifc, ifc_info, blueprint, i):
     p = [-1* centerpoint[2]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2, 1* centerpoint[0]*1000/bbox_l2]
     print("SD P", p)
 
-    p = [-1* centerpoint[2]*1000/bbox_l2, 1* centerpoint[0]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2]
+    y_axis = (0., 0., 1.)
+    x_axis = np.cross(d, y_axis).tolist()
+
+    p = [(-1*(centerpoint[0]*1000/bbox_l2 * x_axis[i]) + (centerpoint[1]*1000/bbox_l2 * y_axis[i]) + -1*(centerpoint[2]*1000/bbox_l2 * d[i])) for i in range(3)]
+    #p = [1* centerpoint[2]*1000/bbox_l2, -1* centerpoint[0]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2]
     #p = [-1* centerpoint[2]*1000/bbox_l2, 0., 0.]
 
     r, x, y = r/bbox_l2, x/bbox_l2, y/bbox_l2

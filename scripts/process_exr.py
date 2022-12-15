@@ -80,9 +80,6 @@ if __name__ == '__main__':
 
     for model_id in model_list:
         element_name = model_id.split(".")[0]
-        print(element_name)
-
-
         exr_path = os.path.join(args.output_dir, 'exr', model_id)
         pose_path = os.path.join(args.output_dir, 'pose', element_name+'.txt')
 
@@ -94,5 +91,5 @@ if __name__ == '__main__':
         points = depth2pcd(depth, intrinsics, pose)
         pcd = geometry.PointCloud()
         pcd.points = utility.Vector3dVector(points)
-        print(pcd.points)
+        print(element_name, pcd.points)
         io.write_point_cloud(os.path.join(pcd_dir, element_name+'.pcd'), pcd)
