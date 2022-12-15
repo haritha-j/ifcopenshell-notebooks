@@ -85,16 +85,18 @@ def elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint):
 
 
 # generate a random synthetic elbow
-def create_elbow(config,  ifc, ifc_info, blueprint):
+def create_elbow(config,  ifc, ifc_info, blueprint, i):
     # generate parameters
     r = random.uniform(config['radius_range'][0], config['radius_range'][1])
+    # r = 10.0
+    # a = 30.0+10*i 
     a = random.uniform(config['angle_range'][0], config['angle_range'][1])
-    
-    d = []
-    for ax in config['axis_direction_range']:
-        d.append(random.uniform(ax[0], ax[1]))
-    d_np = np.array(d)
-    d = (d_np/np.linalg.norm(d_np)).tolist()
+    d = (1., 0., 0.)
+    # d = []
+    # for ax in config['axis_direction_range']:
+    #     d.append(random.uniform(ax[0], ax[1]))
+    # d_np = np.array(d)
+    # d = (d_np/np.linalg.norm(d_np)).tolist()
 
     p = []
     for coord in config['coordinate_range']:
@@ -103,23 +105,31 @@ def create_elbow(config,  ifc, ifc_info, blueprint):
     # generate points on a 2D ring from the origin
     axis_placement = random.uniform(config['curvature_range'][0], 
                                     config['curvature_range'][1])*r
+    # axis_placement = 20.0 * r
+    #axis_ang = math.radians(0)
+    # axis_ang = math.radians(0+ i*30)
     #axis_placement = 50*r
     
     axis_ang = random.uniform(config['axis_angle_range'][0], 
-                              config['axis_angle_range'][1])
+                             config['axis_angle_range'][1])
     x = axis_placement * math.sin(axis_ang)
     y = axis_placement * math.cos(axis_ang)
-    axis_dir = (math.cos(axis_ang), math.sin(axis_ang))
-    
-    # # transform points to the elbow center and normalize
-    # bbox, centerpoint = elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint)
-    # bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
-    # #print('p', p, 'c', centerpoint, 'bbx', bbox_l2, bbox)
-    # #p = [p[i] - centerpoint[i]*10000/bbox_l2 for i in range(3)]
-    # #p = [-1* centerpoint[i]*1000/bbox_l2  for i in range(3)]
+    axis_dir = (math.cos(axis_ang), -1*math.sin(axis_ang))
 
-    # r, x, y = r/bbox_l2, x/bbox_l2, y/bbox_l2
-    # print('p', p, 'c', centerpoint, r, x)
+    # transform points to the elbow center and normalize
+    bbox, centerpoint = elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint)
+    bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
+    #print('p', p, 'c', centerpoint, 'bbx', bbox_l2, bbox)
+    #p = [p[i] - centerpoint[i]*10000/bbox_l2 for i in range(3)]
+    #p = [-1* centerpoint[i]*1000  for i in range(3)]
+    p = [-1* centerpoint[2]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2, 1* centerpoint[0]*1000/bbox_l2]
+    print("SD P", p)
+
+    p = [-1* centerpoint[2]*1000/bbox_l2, 1* centerpoint[0]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2]
+    #p = [-1* centerpoint[2]*1000/bbox_l2, 0., 0.]
+
+    r, x, y = r/bbox_l2, x/bbox_l2, y/bbox_l2
+    print('p', p, 'c', centerpoint, r, x)
 
     # print('bb befpre', bbox, 'c', centerpoint, bbox_l2)
     # bbox2, centerpoint2 = elbow_bbox(r, a, d, p, x, y, axis_dir,blueprint)
@@ -127,9 +137,12 @@ def create_elbow(config,  ifc, ifc_info, blueprint):
 
     create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info)
 
+    #draw_bbox(bbox2, centerpoint2, ifc, ifc_info['floor'], owner_history=ifc_info["owner_history"],
+    #                  context=ifc_info["context"])
+
     metadata = {'radius':r, "direction":d, "angle":a, "position":p, 
                 'axis_x':x, 'axis_y':y}
-    print(metadata)
+    #print(metadata, axis_ang)
     
     return metadata
 

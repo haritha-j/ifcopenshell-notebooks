@@ -32,7 +32,8 @@ def CreateBeam(ifcFile, container, name, section, L, position,
     B1_Placement = ifcFile.createIfcLocalPlacement(
         container.ObjectPlacement,B1_Axis2Placement)
     B1.ObjectPlacement=B1_Placement
-    B1Point = ifcFile.createIfcCartesianPoint ( (0.,0.,0.) )
+    #B1Point = ifcFile.createIfcCartesianPoint ( tuple(position) )
+    B1Point = ifcFile.createIfcCartesianPoint ((0.0,0.0,0.0) )
     B1_ExtrudePlacement = ifcFile.createIfcAxis2Placement3D(B1Point)
     #print (B1Point, B1_ExtrudePlacement, B1_Placement)
     
@@ -86,13 +87,15 @@ def CreateElbow(ifcFile, container, name, section, a, x, y, axis_dir, position,
     B1_Placement = ifcFile.createIfcLocalPlacement(
         container.ObjectPlacement,B1_Axis2Placement)
     B1.ObjectPlacement=B1_Placement
-    B1Point = ifcFile.createIfcCartesianPoint ( position )
+    #B1Point = ifcFile.createIfcCartesianPoint ( position )
+    B1Point = ifcFile.createIfcCartesianPoint ( (0.0,0.0,0.0) )
     B1_ExtrudePlacement = ifcFile.createIfcAxis2Placement3D(B1Point)
     #print (B1Point, B1_ExtrudePlacement, B1_Placement)
 
     B1Point2 = ifcFile.createIfcCartesianPoint ( (x,y,0.) )
     B1_Axis1Placement = ifcFile.createIfcAxis1Placement(B1Point2)
     B1_Axis1Placement.Axis = ifcFile.createIfcDirection((axis_dir[0], axis_dir[1], 0.))
+    #B1_Axis1Placement.Axis = ifcFile.createIfcDirection((axis_dir[0], axis_dir[1], 0.))
     
     B1_Extruded=ifcFile.createIfcRevolvedAreaSolid()
     B1_Extruded.SweptArea=section
@@ -135,9 +138,35 @@ def Circle_Section(r, ifcfile, fill=False):
 
     B1_AreaProfile.Position = B1_Axis2Placement2D 
     B1_AreaProfile.Radius = r
+    return B1_AreaProfile    
+    
+def Rectangle_Section(ifcfile, x, y, fill=False):
+    B1_Axis2Placement2D =ifcfile.createIfcAxis2Placement2D( 
+                          ifcfile.createIfcCartesianPoint( (0.,0.,0.) ) )
+    if fill:
+        B1_AreaProfile = ifcfile.createIfcRectangleProfileDef("AREA")
+    else:
+        B1_AreaProfile = ifcfile.createIfcRectangleProfileDef("AREA")
+        B1_AreaProfile.WallThickness  = 2
+
+    B1_AreaProfile.Position = B1_Axis2Placement2D 
+    B1_AreaProfile.XDim = x*1000
+    B1_AreaProfile.YDim = y*1000
     return B1_AreaProfile
 
 
+def draw_bbox(bbox, center, ifc, floor, owner_history, context):
+    sectionC1 = Rectangle_Section(ifc, bbox[0], bbox[1], True)
+
+    name='bb'
+    print("draw bbox", bbox, center)
+    ConnectingBeam_1 = CreateBeam(ifc, container=floor, name=name, 
+                                  section= sectionC1, L=bbox[2]*1000,
+                                  position=([-bbox[2]*500, 0., 0.]),
+                                  direction=(1., 0., 0.),
+                                  owner_history=owner_history, context=context, colour=None)
+
+    
 def draw_cylinder(p1, p2, radius, colour,  element_name1, element_name2, 
 ifc, floor, owner_history, context):
     sectionC1 = Circle_Section(r=radius, ifcfile=ifc)
