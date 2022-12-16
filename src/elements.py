@@ -8,7 +8,6 @@ import ifcopenshell
 import ifcopenshell.geom
 
 from src.visualisation import *
-from src.geometry import *
 
 # create a new blank ifc file
 def setup_ifc_file(blueprint):
@@ -238,12 +237,6 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     d1_np = np.array(d1)
     d1 = (d1_np/np.linalg.norm(d1_np))
 
-    if (random.uniform(0,1) < config['tee_right_angle_prob']):
-        print(90)
-        tee_angle = 1.571
-    else:
-        tee_angle = random.uniform(config['tee_angle_range'][0], config['tee_angle_range'][1])
-
 
     p1 = np.array([0., 0., 0.])
 
@@ -252,19 +245,28 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     p2 = p1 +  d1 * 0.5 * l1
     print("p2", p2)
 
-    # create random direction
-    reject = True
-    while reject:
-        d2 = []
-        for ax in config['extrusion_direction_range']:
-            d2.append(random.uniform(ax[0], ax[1]))
-        d2_np = np.array(d2)
-        d2 = (d2_np/np.linalg.norm(d2_np))
+    # generate random direction 
+    if (random.uniform(0,1) < config['tee_right_angle_prob']):
+        # generate random direction perpendicular to extrusion axis
+        cos_tee_angle = 0.
+        tee_placement_angle = random.uniform(config['tee_placement_angle_range'][0], config['tee_placement_angle_range'][1])
+        random_axis = (math.cos(tee_placement_angle), math.sin(tee_placement_angle), 0.)
+        d2 = np.cross(d1, random_axis)
+    
+    else:
+        # generate random direction which is not necessarily perpendicular to extrusion axis
+        reject = True
+        while reject:
+            d2 = []
+            for ax in config['extrusion_direction_range']:
+                d2.append(random.uniform(ax[0], ax[1]))
+            d2_np = np.array(d2)
+            d2 = (d2_np/np.linalg.norm(d2_np))
 
-        # tee angle
-        cos_tee_angle = np.dot(d1,d2)/np.linalg.norm(d1)/np.linalg.norm(d2)
-        if ((cos_tee_angle < math.cos(config["tee_angle_range"][0])) and (cos_tee_angle > math.cos(config["tee_angle_range"][1]))):
-            reject = False
+            # tee angle
+            cos_tee_angle = np.dot(d1,d2)/np.linalg.norm(d1)/np.linalg.norm(d2)
+            if ((cos_tee_angle < math.cos(config["tee_angle_range"][0])) and (cos_tee_angle > math.cos(config["tee_angle_range"][1]))):
+                reject = False
 
     # tee placement angle
     y_axis = (0., 0., 1.)
@@ -276,9 +278,8 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info)
 
     #TODO: Fix: secondary length too long, only the invisible end is aligned to the center in angled tees
-    #TODO: Fix: some tees have missing secondary tubes
+    #TODO: Fix: some tees have missing secondary tubes (usually on zeroth element?) -> check with valgrind
     #TODO: Remove secondary pipe section inside primary pipe
-    #TODO: Incorporate right angle probability for d2 generation
      
     metadata = {'radius1':r1, 'radius2':r2, "direction1":d1, "direction2":d2, "length1":l1, "length2":l2, "position1":p1, "position2":p2}
     return metadata
