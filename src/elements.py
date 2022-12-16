@@ -127,7 +127,8 @@ def create_elbow(config,  ifc, ifc_info, blueprint, i):
     y_axis = (0., 0., 1.)
     x_axis = np.cross(d, y_axis).tolist()
 
-    p = [(-1*(centerpoint[0]*1000/bbox_l2 * x_axis[i]) + (centerpoint[1]*1000/bbox_l2 * y_axis[i]) + -1*(centerpoint[2]*1000/bbox_l2 * d[i])) for i in range(3)]
+    p = [(-1*(centerpoint[0]*1000/bbox_l2 * x_axis[i]) + (centerpoint[1]*1000/bbox_l2 * y_axis[i]) + 
+          -1*(centerpoint[2]*1000/bbox_l2 * d[i])) for i in range(3)]
     #p = [1* centerpoint[2]*1000/bbox_l2, -1* centerpoint[0]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2]
     #p = [-1* centerpoint[2]*1000/bbox_l2, 0., 0.]
 
@@ -151,34 +152,29 @@ def create_elbow(config,  ifc, ifc_info, blueprint, i):
     
 # generate Ifc tee from parameters
 def create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info):
-    #cross_section1_filled = Circle_Section(r=r1, ifcfile=ifc, fill=True)
+    cross_section1_filled = Circle_Section(r=r1, ifcfile=ifc, fill=True)
     cross_section1 = Circle_Section(r=r1, ifcfile=ifc)
+    cross_section2_filled = Circle_Section(r=r2, ifcfile=ifc, fill=True)
     cross_section2 = Circle_Section(r=r2, ifcfile=ifc)
 
-    beam1 = CreateBeam(ifc, container=ifc_info['floor'], name="main", 
-                      section=cross_section1, L=l1, position=p1,
-                      direction=d1, owner_history=ifc_info["owner_history"],
-                      context=ifc_info["context"], colour=None)
+    beam1_full = CreateBeamGeom(ifc, section=cross_section1, L=l1, position=p1,
+                      direction=d1)
+    beam1_filled = CreateBeamGeom(ifc, section=cross_section1_filled, L=l1, position=p1,
+                      direction=d1)
+
+    beam2_full =  CreateBeamGeom(ifc, section=cross_section2, L=l2, position=p2,
+                      direction=d2)
     
-    # beam1_filled = CreateBeamGeom(ifc, container=ifc_info['floor'], name="main", 
-    #                   section=cross_section1_filled, L=l1, position=p1,
-    #                   direction=d1, owner_history=ifc_info["owner_history"],
-    #                   context=ifc_info["context"], colour=None)
+    beam2_filled =  CreateBeamGeom(ifc, section=cross_section2_filled, L=l2, position=p2,
+                      direction=d2)
 
-    # beam2_full =  CreateBeamGeom(ifc, container=ifc_info['floor'], name="secondary", 
-    #                   section=cross_section2, L=l2, position=p2,
-    #                   direction=d2, owner_history=ifc_info["owner_history"],
-    #                   context=ifc_info["context"], colour=None)
-
-    # beam2 = CreateSecondaryBeam(ifc, container=ifc_info['floor'], name="secondary", 
-    #                   primary_beam=beam1_filled, secondary_beam=beam2_full, section=cross_section2, L=l2, position=p2,
-    #                   direction=d2, owner_history=ifc_info["owner_history"],
-    #                   context=ifc_info["context"], colour=None)
-
-    beam2 = CreateBeam(ifc, container=ifc_info['floor'], name="secondary", 
-                      section=cross_section2, L=l2, position=p2,
-                      direction=d2, owner_history=ifc_info["owner_history"],
-                      context=ifc_info["context"], colour=None)
+    beam1 = CreatePartialBeam(ifc, container=ifc_info['floor'], name="main", 
+                      primary_beam=beam2_filled, secondary_beam=beam1_full, 
+                      owner_history=ifc_info["owner_history"], context=ifc_info["context"])
+    
+    beam2 = CreatePartialBeam(ifc, container=ifc_info['floor'], name="secondary", 
+                      primary_beam=beam1_filled, secondary_beam=beam2_full, 
+                      owner_history=ifc_info["owner_history"], context=ifc_info["context"])
 
     ## substraction
 
@@ -227,9 +223,11 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     if (random.uniform(0,1) < config['same_radius_prob']):
         r2 = r1
     else:
-        r2 = r1 * random.uniform(config['radius2_percentage_range'][0], config['radius2_percentage_range'][1])
+        r2 = r1 * random.uniform(config['radius2_percentage_range'][0],
+                                  config['radius2_percentage_range'][1])
     
-    l2 = l1 * random.uniform(config['length2_percentage_range'][0], config['length2_percentage_range'][1]) + r1
+    l2 = l1 * random.uniform(config['length2_percentage_range'][0], 
+                             config['length2_percentage_range'][1]) + r1
     
     d1 = []
     for ax in config['extrusion_direction_range']:
@@ -249,7 +247,8 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     if (random.uniform(0,1) < config['tee_right_angle_prob']):
         # generate random direction perpendicular to extrusion axis
         cos_tee_angle = 0.
-        tee_placement_angle = random.uniform(config['tee_placement_angle_range'][0], config['tee_placement_angle_range'][1])
+        tee_placement_angle = random.uniform(config['tee_placement_angle_range'][0], 
+                                             config['tee_placement_angle_range'][1])
         random_axis = (math.cos(tee_placement_angle), math.sin(tee_placement_angle), 0.)
         d2 = np.cross(d1, random_axis)
     
@@ -265,7 +264,8 @@ def create_tee(config,  ifc, ifc_info, blueprint):
 
             # tee angle
             cos_tee_angle = np.dot(d1,d2)/np.linalg.norm(d1)/np.linalg.norm(d2)
-            if ((cos_tee_angle < math.cos(config["tee_angle_range"][0])) and (cos_tee_angle > math.cos(config["tee_angle_range"][1]))):
+            if ((cos_tee_angle < math.cos(config["tee_angle_range"][0])) and 
+                (cos_tee_angle > math.cos(config["tee_angle_range"][1]))):
                 reject = False
 
     # tee placement angle
@@ -281,7 +281,8 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     #TODO: Fix: some tees have missing secondary tubes (usually on zeroth element?) -> check with valgrind
     #TODO: Remove secondary pipe section inside primary pipe
      
-    metadata = {'radius1':r1, 'radius2':r2, "direction1":d1, "direction2":d2, "length1":l1, "length2":l2, "position1":p1, "position2":p2}
+    metadata = {'radius1':r1, 'radius2':r2, "direction1":d1, "direction2":d2, "length1":l1, 
+                "length2":l2, "position1":p1, "position2":p2}
     return metadata
 
 
