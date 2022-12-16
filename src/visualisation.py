@@ -8,10 +8,47 @@ import json
 import open3d as o3d
 from OCC.Core.gp import gp_Pnt
 from utils.JupyterIFCRenderer import JupyterIFCRenderer
-
 from src.geometry import get_oriented_bbox, get_corner, sq_distance
 
 create_guid = lambda: ifcopenshell.guid.compress(uuid.uuid1().hex)
+
+
+# create an IFC beam with a susbtracted section for a tee
+def CreateSecondaryBeam(ifcFile, container, name, primary_beam, secondary_beam, section, L, position, 
+               direction, owner_history, context, colour=None):
+    Z = 0.,0.,1.
+    X = 1.,0.,0.
+
+    F1 = ifcFile.createIfcFlowFitting(create_guid(), owner_history, name)
+    F1.ObjectType ='beam'
+
+    F1_Point = ifcFile.createIfcCartesianPoint ((0.0,0.0,0.0)) 
+    F1_Axis2Placement = ifcFile.createIfcAxis2Placement3D(F1_Point)
+    F1_Axis2Placement.Axis = ifcFile.createIfcDirection(Z)
+    F1_Axis2Placement.RefDirection = ifcFile.createIfcDirection(X)
+
+    F1_Placement = ifcFile.createIfcLocalPlacement(
+        container.ObjectPlacement, F1_Axis2Placement)
+    F1.ObjectPlacement = F1_Placement
+
+    boolean_result = ifcFile.createIfcBooleanResult("DIFFERENCE", primary_beam, secondary_beam)
+    CSGSolid = ifcFile.createIfcCsgSolid(boolean_result)
+
+    F1_Repr = ifcFile.createIfcShapeRepresentation()
+    F1_Repr.ContextOfItems = context
+    F1_Repr.RepresentationIdentifier = 'Body'
+    F1_Repr.RepresentationType = 'CSGSolid'
+    F1_Repr.Items = [CSGSolid]
+    
+    F1_DefShape=ifcFile.createIfcProductDefinitionShape()
+    F1_DefShape.Representations = [F1_Repr]
+    F1.Representation = F1_DefShape
+    
+    Flr1_Container = ifcFile.createIfcRelContainedInSpatialStructure(
+        create_guid(),owner_history)
+    Flr1_Container.RelatedElements = [F1]
+    Flr1_Container.RelatingStructure = container
+    
 
 # create an IFC BEAM
 def CreateBeam(ifcFile, container, name, section, L, position, 
@@ -49,8 +86,7 @@ def CreateBeam(ifcFile, container, name, section, L, position,
         surfaceStyle = ifcFile.createIfcSurfaceStyle(colour.Name, "BOTH",(shade,))
         presStyleAssign = ifcFile.createIfcPresentationStyleAssignment((surfaceStyle,))
         ifcFile.createIfcStyledItem(B1_Extruded, (presStyleAssign,), colour.Name)
-
-
+    
     B1_Repr=ifcFile.createIfcShapeRepresentation()
     B1_Repr.ContextOfItems=context
     B1_Repr.RepresentationIdentifier = 'Body'
@@ -64,7 +100,30 @@ def CreateBeam(ifcFile, container, name, section, L, position,
     Flr1_Container = ifcFile.createIfcRelContainedInSpatialStructure(
         create_guid(),owner_history)
     Flr1_Container.RelatedElements=[B1]
-    Flr1_Container.RelatingStructure= container
+    Flr1_Container.RelatingStructure= container    
+
+# create an IFC BEAM
+def CreateBeamGeom(ifcFile, container, name, section, L, position, 
+               direction, owner_history, context, colour=None):
+    Z = 0.,0.,1.
+    #print('length', L)
+
+    #B1Point = ifcFile.createIfcCartesianPoint ( tuple(position) )
+    B1Point = ifcFile.createIfcCartesianPoint (tuple(position) )
+    B1_ExtrudePlacement = ifcFile.createIfcAxis2Placement3D(B1Point)
+    B1_ExtrudePlacement.Axis = ifcFile.createIfcDirection(direction)
+    B1_ExtrudePlacement.RefDirection =ifcFile.createIfcDirection(
+        np.cross(direction, Z).tolist())
+    #print (B1Point, B1_ExtrudePlacement, B1_Placement)
+    
+    B1_Extruded=ifcFile.createIfcExtrudedAreaSolid()
+    B1_Extruded.SweptArea=section
+    B1_Extruded.Position=B1_ExtrudePlacement
+    B1_Extruded.ExtrudedDirection = ifcFile.createIfcDirection(direction)
+    B1_Extruded.Depth = L
+
+    return B1_Extruded
+
 
 # create an IFC elbow
 def CreateElbow(ifcFile, container, name, section, a, x, y, axis_dir, position, 

@@ -8,7 +8,7 @@ import ifcopenshell
 import ifcopenshell.geom
 
 from src.visualisation import *
-
+from src.geometry import *
 
 # create a new blank ifc file
 def setup_ifc_file(blueprint):
@@ -149,6 +149,40 @@ def create_elbow(config,  ifc, ifc_info, blueprint, i):
     #print(metadata, axis_ang)
     
     return metadata
+    
+# generate Ifc tee from parameters
+def create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info):
+    #cross_section1_filled = Circle_Section(r=r1, ifcfile=ifc, fill=True)
+    cross_section1 = Circle_Section(r=r1, ifcfile=ifc)
+    cross_section2 = Circle_Section(r=r2, ifcfile=ifc)
+
+    beam1 = CreateBeam(ifc, container=ifc_info['floor'], name="main", 
+                      section=cross_section1, L=l1, position=p1,
+                      direction=d1, owner_history=ifc_info["owner_history"],
+                      context=ifc_info["context"], colour=None)
+    
+    # beam1_filled = CreateBeamGeom(ifc, container=ifc_info['floor'], name="main", 
+    #                   section=cross_section1_filled, L=l1, position=p1,
+    #                   direction=d1, owner_history=ifc_info["owner_history"],
+    #                   context=ifc_info["context"], colour=None)
+
+    # beam2_full =  CreateBeamGeom(ifc, container=ifc_info['floor'], name="secondary", 
+    #                   section=cross_section2, L=l2, position=p2,
+    #                   direction=d2, owner_history=ifc_info["owner_history"],
+    #                   context=ifc_info["context"], colour=None)
+
+    # beam2 = CreateSecondaryBeam(ifc, container=ifc_info['floor'], name="secondary", 
+    #                   primary_beam=beam1_filled, secondary_beam=beam2_full, section=cross_section2, L=l2, position=p2,
+    #                   direction=d2, owner_history=ifc_info["owner_history"],
+    #                   context=ifc_info["context"], colour=None)
+
+    beam2 = CreateBeam(ifc, container=ifc_info['floor'], name="secondary", 
+                      section=cross_section2, L=l2, position=p2,
+                      direction=d2, owner_history=ifc_info["owner_history"],
+                      context=ifc_info["context"], colour=None)
+
+    ## substraction
+
 
 
 # generate IfcBeam from parameters
@@ -179,7 +213,77 @@ def pipe_bbox(r, l, d):
     z = r*cos_z*2 + l*sin_z
     
     return (x,y,z)
+
+# generate random synthetic tee
+def create_tee(config,  ifc, ifc_info, blueprint):
     
+    # generate parameters
+    reject = True
+    while reject:
+        r1 = random.uniform(config['radius1_range'][0], config['radius1_range'][1])
+        l1 = random.uniform(config['length1_range'][0], config['length1_range'][1])
+        if (l1/r1 > 2) and (l1/r1 < 10):
+            reject = False
+
+    if (random.uniform(0,1) < config['same_radius_prob']):
+        r2 = r1
+    else:
+        r2 = r1 * random.uniform(config['radius2_percentage_range'][0], config['radius2_percentage_range'][1])
+    
+    l2 = l1 * random.uniform(config['length2_percentage_range'][0], config['length2_percentage_range'][1]) + r1
+    
+    d1 = []
+    for ax in config['extrusion_direction_range']:
+        d1.append(random.uniform(ax[0], ax[1]))
+    d1_np = np.array(d1)
+    d1 = (d1_np/np.linalg.norm(d1_np))
+
+    if (random.uniform(0,1) < config['tee_right_angle_prob']):
+        print(90)
+        tee_angle = 1.571
+    else:
+        tee_angle = random.uniform(config['tee_angle_range'][0], config['tee_angle_range'][1])
+
+
+    p1 = np.array([0., 0., 0.])
+
+    # calculate position and direction of secondary pipe
+    #p2 = [(p[i] + x * d1[i]) for i in range(3)]
+    p2 = p1 +  d1 * 0.5 * l1
+    print("p2", p2)
+
+    # create random direction
+    reject = True
+    while reject:
+        d2 = []
+        for ax in config['extrusion_direction_range']:
+            d2.append(random.uniform(ax[0], ax[1]))
+        d2_np = np.array(d2)
+        d2 = (d2_np/np.linalg.norm(d2_np))
+
+        # tee angle
+        cos_tee_angle = np.dot(d1,d2)/np.linalg.norm(d1)/np.linalg.norm(d2)
+        if ((cos_tee_angle < math.cos(config["tee_angle_range"][0])) and (cos_tee_angle > math.cos(config["tee_angle_range"][1]))):
+            reject = False
+
+    # tee placement angle
+    y_axis = (0., 0., 1.)
+    x_axis = np.cross(d1, y_axis).tolist()
+    cos_tee_placement_angle = np.dot(x_axis,d2)/np.linalg.norm(x_axis)/np.linalg.norm(d2)
+    d1, d2, p1, p2 = d1.tolist(), d2.tolist(),  p1.tolist(),  p2.tolist(), 
+    print("d2", d1, d2, cos_tee_angle, cos_tee_placement_angle)
+
+    create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info)
+
+    #TODO: Fix: secondary length too long, only the invisible end is aligned to the center in angled tees
+    #TODO: Fix: some tees have missing secondary tubes
+    #TODO: Remove secondary pipe section inside primary pipe
+    #TODO: Incorporate right angle probability for d2 generation
+     
+    metadata = {'radius1':r1, 'radius2':r2, "direction1":d1, "direction2":d2, "length1":l1, "length2":l2, "position1":p1, "position2":p2}
+    return metadata
+
+
 
 # generate a random synthetic pipe
 def create_pipe(config,  ifc, ifc_info):

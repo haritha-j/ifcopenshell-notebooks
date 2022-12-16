@@ -114,9 +114,9 @@ if __name__ == '__main__':
 
 
         #Redirect output to log file
-        # old_os_out = os.dup(1)
-        # os.close(1)
-        # os.open('blender.log', os.O_WRONLY)
+        old_os_out = os.dup(1)
+        os.close(1)
+        os.open('blender.log', os.O_WRONLY)
 
         # Import mesh model
         model_path = os.path.join(model_dir, model_id)
@@ -143,7 +143,7 @@ if __name__ == '__main__':
             bpy.data.materials.remove(m)
 
         # Show time
-        # os.close(1)
-        # os.dup(old_os_out)
-        # os.close(old_os_out)
+        os.close(1)
+        os.dup(old_os_out)
+        os.close(old_os_out)
         print('%s done, time=%.4f sec' % (model_id, time.time() - start))
