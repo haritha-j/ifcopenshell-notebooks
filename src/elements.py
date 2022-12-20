@@ -372,9 +372,6 @@ def create_tee(config,  ifc, ifc_info, blueprint):
         d2 = d2/np.linalg.norm(d2)
         #print("random axis", random_axis)
         #print("right")
-    
-
-
 
     # tee placement angle
     z_old = (0., 0., 1.)
