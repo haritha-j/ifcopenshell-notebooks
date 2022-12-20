@@ -69,13 +69,13 @@ def tee_bbox(r1, r2, l1, l2, d1, d2):
     b1 = bounding_box_dimensions(bounding_box_cylinder(r1,l1,d1))
     b2 = bounding_box_dimensions(bounding_box_cylinder(r2,l2,d2))
     #print('b1', b1, 'b2', b2)
-    print('b1', [b1[1][i]-b1[0][i] for i in range(3)])
+    #print('b1', [b1[1][i]-b1[0][i] for i in range(3)])
     #print('b1x', [b1x[1][i]-b1x[0][i] for i in range(3)])
     #translate bbox 2 to its p2
     b2_adjusted = []
     for i in range(2):
         b2_adjusted.append((b2[i] + np.array(d1) * 0.5 * l1).tolist())
-    print('b2 adj', [b2_adjusted[1][i]-b2_adjusted[0][i] for i in range(3)])
+    #print('b2 adj', [b2_adjusted[1][i]-b2_adjusted[0][i] for i in range(3)])
 
     min_point = [min(b1[0][0], b2_adjusted[0][0]), min(b1[0][1], b2_adjusted[0][1]), min(b1[0][2], b2_adjusted[0][2])]
     max_point = [max(b1[1][0], b2_adjusted[1][0]), max(b1[1][1], b2_adjusted[1][1]), max(b1[1][2], b2_adjusted[1][2])]
@@ -261,12 +261,11 @@ def bounding_box_cylinder(radius, length, direction):
         iB = iB/np.linalg.norm(iB)
         jB = np.cross(kB, iB)
         jB = jB/np.linalg.norm(jB)
-        print("iB", iB, "jB", jB)
 
         rotation_matrix = np.array([[np.dot(iA, iB), np.dot(iA, jB), np.dot(iA, kB)], 
         [np.dot(jA, iB), np.dot(jA, jB), np.dot(jA, kB)],
         [np.dot(kA, iB), np.dot(kA, jB), np.dot(kA, kB)]])
-        print(rotation_matrix)
+        #print(rotation_matrix)
 
         # Rotate the vertices
         rotated_vertices = []
@@ -340,24 +339,12 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     # calculate position and direction of secondary pipe
     #p2 = [(p[i] + x * d1[i]) for i in range(3)]
     p2 = p1 +  d1 * 0.5 * l1
-    print("p2", p2, 'r1', r1, 'r2', r2, 'l1', l1)
+    #print("p2", p2, 'r1', r1, 'r2', r2, 'l1', l1)
 
-    # generate random direction 
-    if (random.uniform(0,1) < config['tee_right_angle_prob']):
-        # generate random direction perpendicular to extrusion axis
-        cos_tee_angle = 0.
-        tee_placement_angle = random.uniform(config['tee_placement_angle_range'][0], 
-                                             config['tee_placement_angle_range'][1])
-        random_axis = (math.cos(tee_placement_angle), math.sin(tee_placement_angle), 0.)
-        #random_axis = np.array((1.,0.,0.))
-
-        d2 = np.cross(d1, random_axis)
-        d2 = d2/np.linalg.norm(d2)
-        print("random axis", random_axis)
-        print("right")
-    
-    else:
-        print("not right")
+    # generate random direction at any angle only if the secondary tube is short enough
+    if (random.uniform(0,1) > config['tee_right_angle_prob']) and ((l2*math.cos(config['tee_placement_angle_range'][0]) 
+    + r2*math.sin(config['tee_placement_angle_range'][0]))*1.2 < l1/2):
+        #print("not right")
         # generate random direction which is not necessarily perpendicular to extrusion axis
         reject = True
         while reject:
@@ -373,6 +360,22 @@ def create_tee(config,  ifc, ifc_info, blueprint):
                 (cos_tee_angle > math.cos(config["tee_angle_range"][1]))):
                 reject = False
 
+    else:
+        # generate random direction perpendicular to extrusion axis
+        cos_tee_angle = 0.
+        tee_placement_angle = random.uniform(config['tee_placement_angle_range'][0], 
+                                             config['tee_placement_angle_range'][1])
+        random_axis = (math.cos(tee_placement_angle), math.sin(tee_placement_angle), 0.)
+        #random_axis = np.array((1.,0.,0.))
+
+        d2 = np.cross(d1, random_axis)
+        d2 = d2/np.linalg.norm(d2)
+        #print("random axis", random_axis)
+        #print("right")
+    
+
+
+
     # tee placement angle
     z_old = (0., 0., 1.)
     x_axis = np.cross(d1, z_old)
@@ -382,7 +385,7 @@ def create_tee(config,  ifc, ifc_info, blueprint):
 
     #cos_tee_placement_angle = np.dot(x_axis,d2)/np.linalg.norm(x_axis)/np.linalg.norm(d2)
     d1, d2, p1, p2 = d1.tolist(), d2.tolist(),  p1.tolist(),  p2.tolist()
-    print("d2", d1, d2, cos_tee_angle)
+    #print("d2", d1, d2, cos_tee_angle)
 
     #print("pipe method", pipe_bbox(r1,l1,d1), pipe_bbox(r2,l2,d2))
     # b1_dims = pipe_bbox(r1,l1,d1)
@@ -394,7 +397,7 @@ def create_tee(config,  ifc, ifc_info, blueprint):
 
     bbox, centerpoint = tee_bbox(r1, r2, l1, l2, d1, d2)
     bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
-    print("bb, center", bbox, centerpoint, bbox_l2)
+    #print("bb, center", bbox, centerpoint, bbox_l2)
 
     #p1 = [-1* centerpoint[2]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2, 1* centerpoint[0]*1000/bbox_l2]
     # print("SD P", p)
@@ -413,12 +416,8 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     #       -1*(centerpoint[2]*1000/bbox_l2 * d1[i])) for i in range(3)]
 
     p1 = [- centerpoint[i]*1000/bbox_l2 for i in range(3)]
-    print("adjusted p1", p1)
-
     r1, r2, l1, l2 = r1/bbox_l2, r2/bbox_l2, l1/bbox_l2, l2/bbox_l2
-
     p2 = (np.array(p1) +  np.array(d1) * 0.5 * l1).tolist()
-    print("adjusted p2", p2)
 
     create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info)
 
