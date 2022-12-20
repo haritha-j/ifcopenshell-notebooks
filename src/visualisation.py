@@ -22,7 +22,7 @@ def CreatePartialBeam(ifcFile, container, name, primary_beam, secondary_beam,
     Z = 0., 0., 1.
     X = 1., 0., 0.
 
-    F1 = ifcFile.createIfcFlowFitting(create_guid(), owner_history, name)
+    F1 = ifcFile.createIfcPipeFitting(create_guid(), owner_history, name)
     F1.ObjectType = 'beam'
 
     F1_Point = ifcFile.createIfcCartesianPoint((0.0, 0.0, 0.0))
@@ -59,7 +59,7 @@ def CreateBeam(ifcFile, container, name, section, L, position,
                direction, owner_history, context, colour=None):
     Z = 0., 0., 1.
     # print('length', L)
-    B1 = ifcFile.createIfcBeam(create_guid(), owner_history, name)
+    B1 = ifcFile.createIfcPipeFitting(create_guid(), owner_history, name)
     B1.ObjectType = 'beam'
 
     # print(type(position[0]))

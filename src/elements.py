@@ -64,6 +64,29 @@ def create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info, fill=False):
 
 
 # return axis aligned bbox, centerpoint of elbow
+def tee_bbox(r1, r2, l1, l2, d1, d2):
+
+    b1 = bounding_box_dimensions(bounding_box_cylinder(r1,l1,d1))
+    b2 = bounding_box_dimensions(bounding_box_cylinder(r2,l2,d2))
+    #print('b1', b1, 'b2', b2)
+    print('b1', [b1[1][i]-b1[0][i] for i in range(3)])
+    #print('b1x', [b1x[1][i]-b1x[0][i] for i in range(3)])
+    #translate bbox 2 to its p2
+    b2_adjusted = []
+    for i in range(2):
+        b2_adjusted.append((b2[i] + np.array(d1) * 0.5 * l1).tolist())
+    print('b2 adj', [b2_adjusted[1][i]-b2_adjusted[0][i] for i in range(3)])
+
+    min_point = [min(b1[0][0], b2_adjusted[0][0]), min(b1[0][1], b2_adjusted[0][1]), min(b1[0][2], b2_adjusted[0][2])]
+    max_point = [max(b1[1][0], b2_adjusted[1][0]), max(b1[1][1], b2_adjusted[1][1]), max(b1[1][2], b2_adjusted[1][2])]
+
+    centerpoint = [(max_point[0] + min_point[0])/2000, (max_point[1] + min_point[1])/2000, (max_point[2] + min_point[2])/2000]
+    bbox = [(max_point[0] - min_point[0])/1000, (max_point[1] - min_point[1])/1000, (max_point[2] - min_point[2])/1000]
+
+    return bbox, centerpoint
+
+
+# return axis aligned bbox, centerpoint of elbow
 def elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint):
     temp = setup_ifc_file(blueprint)
     owner_history = temp.by_type("IfcOwnerHistory")[0]
@@ -75,7 +98,7 @@ def elbow_bbox(r, a, d, p, x, y, axis_dir, blueprint):
         "project": project,
        "context": context, 
        "floor": floor}
-    print('INIT PARAMS', r, a, d, p, x, y)
+    #print('INIT PARAMS', r, a, d, p, x, y)
     create_IfcElbow(r, a, d, p, x, y, axis_dir, temp, temp_info, fill=True)
     
     bbox, center = generic_element_bbox(temp, "IfcPipeFitting")
@@ -176,8 +199,21 @@ def create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info):
                       primary_beam=beam1_filled, secondary_beam=beam2_full, 
                       owner_history=ifc_info["owner_history"], context=ifc_info["context"])
 
-    ## substraction
 
+# generate Ifc tee without element substraction, only for bbox
+def create_IfcTeeGeom(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info):
+    cross_section1 = Circle_Section(r=r1, ifcfile=ifc)
+    cross_section2 = Circle_Section(r=r2, ifcfile=ifc)
+
+    beam1 = CreateBeam(ifc, container=ifc_info['floor'], name="main", 
+                      section=cross_section1, L=l1, position=p1,
+                      direction=d1, owner_history=ifc_info["owner_history"],
+                      context=ifc_info["context"], colour=None)
+    
+    beam2 = CreateBeam(ifc, container=ifc_info['floor'], name="secondary", 
+                      section=cross_section2, L=l2, position=p2,
+                      direction=d2, owner_history=ifc_info["owner_history"],
+                      context=ifc_info["context"], colour=None)
 
 
 # generate IfcBeam from parameters
@@ -188,6 +224,68 @@ def create_IfcPipe(r, l, d, p, ifc, ifc_info):
                       section=cross_section, L=l, position=p,
                       direction=d, owner_history=ifc_info["owner_history"],
                       context=ifc_info["context"], colour=None)
+
+import math
+
+def bounding_box_cylinder(radius, length, direction):
+    # Calculate the half-width and half-height of the bounding box
+    half_width = radius
+    half_height = radius
+
+    # Calculate the centerpoint of the bounding box
+    center_x = 0
+    center_y = 0
+    center_z = length / 2
+
+    # Calculate the vertices of the bounding box
+    vertices = [
+        (center_x - half_width, center_y - half_height, center_z - length/2),
+        (center_x + half_width, center_y - half_height, center_z - length/2),
+        (center_x + half_width, center_y + half_height, center_z - length/2),
+        (center_x - half_width, center_y + half_height, center_z - length/2),
+        (center_x - half_width, center_y - half_height, center_z + length/2),
+        (center_x + half_width, center_y - half_height, center_z + length/2),
+        (center_x + half_width, center_y + half_height, center_z + length/2),
+        (center_x - half_width, center_y + half_height, center_z + length/2)
+    ]
+
+    # Rotate the vertices if the cylinder axis is not aligned with the z-axis
+    if direction != (0, 0, 1):
+
+        iA = np.array([1., 0., 0.])
+        jA = np.array([0., 1., 0.])
+        kA = np.array([0., 0., 1.])
+
+        kB =np.array(direction)
+        iB = np.cross(kB, kA)
+        iB = iB/np.linalg.norm(iB)
+        jB = np.cross(kB, iB)
+        jB = jB/np.linalg.norm(jB)
+        print("iB", iB, "jB", jB)
+
+        rotation_matrix = np.array([[np.dot(iA, iB), np.dot(iA, jB), np.dot(iA, kB)], 
+        [np.dot(jA, iB), np.dot(jA, jB), np.dot(jA, kB)],
+        [np.dot(kA, iB), np.dot(kA, jB), np.dot(kA, kB)]])
+        print(rotation_matrix)
+
+        # Rotate the vertices
+        rotated_vertices = []
+        for vertex in vertices:
+            rotated_vertex = rotation_matrix @ vertex
+            rotated_vertices.append(rotated_vertex.tolist())
+        vertices = rotated_vertices
+    return vertices
+
+def bounding_box_dimensions(vertices):
+    # Find the minimum and maximum x, y, and z coordinates of the vertices
+    min_x = min(vertex[0] for vertex in vertices)
+    max_x = max(vertex[0] for vertex in vertices)
+    min_y = min(vertex[1] for vertex in vertices)
+    max_y = max(vertex[1] for vertex in vertices)
+    min_z = min(vertex[2] for vertex in vertices)
+    max_z = max(vertex[2] for vertex in vertices)
+
+    return ([min_x, min_y, min_z], [max_x, max_y, max_z])
 
 
 # return axis aligned bbox of pipe
@@ -203,9 +301,9 @@ def pipe_bbox(r, l, d):
     cos_z = 0 if l_xy == 0 else l_xy/(math.sqrt(l_xy*l_xy + d[2]*d[2]))
     sin_z = 0 if d[2] == 0 else d[2]/(math.sqrt(l_xy*l_xy + d[2]*d[2]))    
 
-    y = r*cos_y*2 + l*sin_y
-    x = r*cos_x*2 + l*sin_x
-    z = r*cos_z*2 + l*sin_z
+    y = abs(r*cos_y*2 + l*sin_y)
+    x = abs(r*cos_x*2 + l*sin_x)
+    z = abs(r*cos_z*2 + l*sin_z)
     
     return (x,y,z)
 
@@ -235,13 +333,14 @@ def create_tee(config,  ifc, ifc_info, blueprint):
     d1_np = np.array(d1)
     d1 = (d1_np/np.linalg.norm(d1_np))
 
-
+    #d1 = np.array([0.707,0.,0.707])
+    #d1 = np.array([0.,0.04,0.999])
     p1 = np.array([0., 0., 0.])
 
     # calculate position and direction of secondary pipe
     #p2 = [(p[i] + x * d1[i]) for i in range(3)]
     p2 = p1 +  d1 * 0.5 * l1
-    print("p2", p2)
+    print("p2", p2, 'r1', r1, 'r2', r2, 'l1', l1)
 
     # generate random direction 
     if (random.uniform(0,1) < config['tee_right_angle_prob']):
@@ -250,9 +349,15 @@ def create_tee(config,  ifc, ifc_info, blueprint):
         tee_placement_angle = random.uniform(config['tee_placement_angle_range'][0], 
                                              config['tee_placement_angle_range'][1])
         random_axis = (math.cos(tee_placement_angle), math.sin(tee_placement_angle), 0.)
+        #random_axis = np.array((1.,0.,0.))
+
         d2 = np.cross(d1, random_axis)
+        d2 = d2/np.linalg.norm(d2)
+        print("random axis", random_axis)
+        print("right")
     
     else:
+        print("not right")
         # generate random direction which is not necessarily perpendicular to extrusion axis
         reject = True
         while reject:
@@ -269,18 +374,57 @@ def create_tee(config,  ifc, ifc_info, blueprint):
                 reject = False
 
     # tee placement angle
-    y_axis = (0., 0., 1.)
-    x_axis = np.cross(d1, y_axis).tolist()
-    cos_tee_placement_angle = np.dot(x_axis,d2)/np.linalg.norm(x_axis)/np.linalg.norm(d2)
-    d1, d2, p1, p2 = d1.tolist(), d2.tolist(),  p1.tolist(),  p2.tolist(), 
-    print("d2", d1, d2, cos_tee_angle, cos_tee_placement_angle)
+    z_old = (0., 0., 1.)
+    x_axis = np.cross(d1, z_old)
+    x_axis = (x_axis/np.linalg.norm(x_axis)).tolist()
+    y_axis = np.cross(d2, x_axis)
+    y_axis = (y_axis/np.linalg.norm(y_axis)).tolist()
+
+    #cos_tee_placement_angle = np.dot(x_axis,d2)/np.linalg.norm(x_axis)/np.linalg.norm(d2)
+    d1, d2, p1, p2 = d1.tolist(), d2.tolist(),  p1.tolist(),  p2.tolist()
+    print("d2", d1, d2, cos_tee_angle)
+
+    #print("pipe method", pipe_bbox(r1,l1,d1), pipe_bbox(r2,l2,d2))
+    # b1_dims = pipe_bbox(r1,l1,d1)
+    # c1 = [((l1*d1[i])/2) for i in range(3)]
+    # b1 = [[(c1[i] - b1_dims[i]/2) for i in range(3)], [(c1[i] + b1_dims[i]/2) for i in range(3)]]
+    # b2_dims = pipe_bbox(r2,l2,d2)
+    # c2 = [((l2*d2[i])/2) for i in range(3)]
+    # b2 = [[(c2[i] - b2_dims[i]/2) for i in range(3)], [(c2[i] + b2_dims[i]/2) for i in range(3)]]
+
+    bbox, centerpoint = tee_bbox(r1, r2, l1, l2, d1, d2)
+    bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
+    print("bb, center", bbox, centerpoint, bbox_l2)
+
+    #p1 = [-1* centerpoint[2]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2, 1* centerpoint[0]*1000/bbox_l2]
+    # print("SD P", p)
+
+    # x_axis = np.cross(d1, y_axis).tolist()
+
+    # z_old = (0., 0., 1.)
+    # x_axis = np.cross(d1, z_old)
+    # x_axis = (x_axis/np.linalg.norm(x_axis)).tolist()
+    # y_axis = np.cross(d2, x_axis)
+    # y_axis = (y_axis/np.linalg.norm(y_axis)).tolist()
+    
+    #create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info)
+
+    # p1 = [(-1*(centerpoint[0]*1000/bbox_l2 * x_axis[i]) + (centerpoint[1]*1000/bbox_l2 * y_axis[i]) + 
+    #       -1*(centerpoint[2]*1000/bbox_l2 * d1[i])) for i in range(3)]
+
+    p1 = [- centerpoint[i]*1000/bbox_l2 for i in range(3)]
+    print("adjusted p1", p1)
+
+    r1, r2, l1, l2 = r1/bbox_l2, r2/bbox_l2, l1/bbox_l2, l2/bbox_l2
+
+    p2 = (np.array(p1) +  np.array(d1) * 0.5 * l1).tolist()
+    print("adjusted p2", p2)
 
     create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info)
 
     #TODO: Fix: secondary length too long, only the invisible end is aligned to the center in angled tees
-    #TODO: Fix: some tees have missing secondary tubes (usually on zeroth element?) -> check with valgrind
-    #TODO: Remove secondary pipe section inside primary pipe
-     
+    #TODO: Fix: some tees have missing secondary tubes (usually on zeroth element?), when direction is aligned with axis, check placement angle
+          
     metadata = {'radius1':r1, 'radius2':r2, "direction1":d1, "direction2":d2, "length1":l1, 
                 "length2":l2, "position1":p1, "position2":p2}
     return metadata
