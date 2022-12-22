@@ -10,7 +10,7 @@ import ifcopenshell
 from ifcopenshell import template
 import ifcopenshell.geom
 
-from src.visualisation import *
+from src.ifc import *
 from src.elements import create_pipe, create_elbow, create_tee, setup_ifc_file
 
 
