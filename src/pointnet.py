@@ -114,14 +114,14 @@ def pointnetloss(outputs, labels, m3x3, m64x64, alpha = 0.0001):
     return criterion(outputs, labels) + alpha * (torch.norm(diff3x3)+torch.norm(diff64x64)) / float(bs)
 
 
-def train(model, savepath, targets, train_loader, val_loader=None,  epochs=50, save=True):
+def train(model, savepath, optimizer, criterion, device, targets, train_loader, val_loader=None,  epochs=50, save=True):
     for epoch in range(epochs): 
-        pointnet.train()
+        model.train()
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data['pointcloud'].to(device).float(), data['properties'].to(device)
             optimizer.zero_grad()
-            outputs, m3x3, m64x64 = pointnet(inputs.transpose(1,2))
+            outputs, m3x3, m64x64 = model(inputs.transpose(1,2))
 
             loss = pointnetloss(outputs, labels, m3x3, m64x64)
             loss.backward()
@@ -134,7 +134,7 @@ def train(model, savepath, targets, train_loader, val_loader=None,  epochs=50, s
                         (epoch + 1, i + 1, len(train_loader), running_loss / 10))
                     running_loss = 0.0
 
-        pointnet.eval()
+        model.eval()
         total = 0
 
         # validation
@@ -143,7 +143,7 @@ def train(model, savepath, targets, train_loader, val_loader=None,  epochs=50, s
                 total_val_loss = np.zeros(targets)
                 for data in val_loader:
                     inputs, labels = data['pointcloud'].to(device).float(), data['properties'].to(device)
-                    outputs, __, __ = pointnet(inputs.transpose(1,2))
+                    outputs, __, __ = model(inputs.transpose(1,2))
                     total += labels.size(0)
                     for i in range(targets):
                       val_loss = criterion(outputs[:,i], labels[:,i])
@@ -156,4 +156,4 @@ def train(model, savepath, targets, train_loader, val_loader=None,  epochs=50, s
 
         # save the model
         if save:
-            torch.save(pointnet.state_dict(), savepath +"save_"+str(epoch)+".pth")
+            torch.save(model.state_dict(), savepath +"save_"+str(epoch)+".pth")

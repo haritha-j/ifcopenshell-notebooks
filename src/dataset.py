@@ -17,11 +17,13 @@ def parse_tee_properties(element_data):
   #target = [element_data['radius']/1000, element_data['length']/1000]
   scaled_targets = [element_data['radius1']/1000, element_data['length1']/1000, 
                     element_data['radius2']/1000, element_data['length2']/1000]
-  unscaled_targets = [element_data['direction1'][0], element_data['direction1'][1],
-                      element_data['direction1'][2], element_data['direction2'][0], 
-                      element_data['direction2'][1], element_data['direction2'][2],
-                      element_data['position1'][0]/1000, element_data['position1'][1]/1000,
+  unscaled_targets = [element_data['position1'][0]/1000, element_data['position1'][1]/1000,
                       element_data['position1'][2]/1000]
+  for dir in ['direction1', 'direction2']:
+    for i in range(3):
+      unscaled_targets.append(math.sin(element_data[dir][i]))
+      unscaled_targets.append(math.cos(element_data[dir][i]))
+
 
   #target = [element_data['radius']/1000]
   return np.array(scaled_targets), np.array(unscaled_targets)

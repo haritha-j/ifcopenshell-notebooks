@@ -7,8 +7,7 @@ import torch
 import copy
 
 import open3d as o3d
-import plotly.graph_objects as go
-import plotly.express as px
+
 import scipy.spatial.distance
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
@@ -31,56 +30,7 @@ class Normalize(object):
         #print(properties,properties_norm)
 
         return  (norm_pointcloud, properties_norm)
-
-
-def visualize_rotate(data):
-    x_eye, y_eye, z_eye = 1.25, 1.25, 0.8
-    frames=[]
-
-    def rotate_z(x, y, z, theta):
-        w = x+1j*y
-        return np.real(np.exp(1j*theta)*w), np.imag(np.exp(1j*theta)*w), z
-
-    for t in np.arange(0, 10.26, 0.1):
-        xe, ye, ze = rotate_z(x_eye, y_eye, z_eye, -t)
-        frames.append(dict(layout=dict(scene=dict(camera=dict(eye=dict(x=xe, y=ye, z=ze))))))
-    fig = go.Figure(data=data,
-                    layout=go.Layout(
-                        updatemenus=[dict(type='buttons',
-                                    showactive=False,
-                                    y=1,
-                                    x=0.8,
-                                    xanchor='left',
-                                    yanchor='bottom',
-                                    pad=dict(t=45, r=10),
-                                    buttons=[dict(label='Play',
-                                                    method='animate',
-                                                    args=[None, dict(frame=dict(duration=50, redraw=True),
-                                                                    transition=dict(duration=0),
-                                                                    fromcurrent=True,
-                                                                    mode='immediate'
-                                                                    )]
-                                                    )
-                                            ]
-                                    )
-                                ]
-                    ),
-                    frames=frames
-            )
-
-    return fig
-
-
-def pcshow(xs,ys,zs):
-    data=[go.Scatter3d(x=xs, y=ys, z=zs,
-                                   mode='markers')]
-    fig = visualize_rotate(data)
-    fig.update_traces(marker=dict(size=2,
-                      line=dict(width=2,
-                      color='DarkSlateGrey')),
-                      selector=dict(mode='markers'))
-    fig.show()
-    
+  
 
 # trsansform the centerpoint of a cloud to origin
 def center_bbox(cloud):
@@ -120,3 +70,118 @@ class ToTensor(object):
         assert len(pointcloud.shape)==2
 
         return (torch.from_numpy(pointcloud).float(), torch.from_numpy(properties).float())
+
+
+def random_resample_cloud(points, density):
+    indices = np.arange(points.shape[0])
+    if (len(points) > density):
+        sampled_indices = np.random.choice(indices, density, replace=False)
+    else:
+        sampled_indices = np.random.choice(indices, density, replace=True)
+        
+    #print(len(sampled_indices))
+    return(points[sampled_indices])
+        
+
+def save_cloud(points, output_base, name):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    save_path = os.path.join(output_base, name + ".pcd")
+    o3d.io.write_point_cloud(save_path, pcd)
+
+
+def synthetic_dataset(config, sample_size, element_class, output_base, blueprint, start=0):
+    # setup
+    f = open(config, 'r')
+    config_data  = json.load(f)
+    output_dir = os.path.join(output_base, element_class)
+    #os.makedirs(output_dir)
+
+    metadata = {}
+    for i in tqdm(range(start, sample_size+start)):
+        # generate ifc file
+        ifc = setup_ifc_file(blueprint)
+        owner_history = ifc.by_type("IfcOwnerHistory")[0]
+        project = ifc.by_type("IfcProject")[0]
+        context = ifc.by_type("IfcGeometricRepresentationContext")[0]
+        floor = ifc.by_type("IfcBuildingStorey")[0]
+        
+        ifc_info = {"owner_history": owner_history,
+            "project": project,
+           "context": context, 
+           "floor": floor}
+        
+        # generate ifc element
+        if element_class == 'pipe':
+            e = create_pipe(config_data[element_class], ifc, ifc_info)
+        if element_class == 'elbow':
+            e = create_elbow(config_data[element_class], ifc, ifc_info, blueprint)
+        elif element_class == 'tee':
+            e = create_tee(config_data[element_class], ifc, ifc_info, blueprint)
+    
+        metadata[str(i)] = e
+        ifc.write(os.path.join(output_dir, '%d.ifc' % i))
+    
+    with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
+        json.dump(metadata, f)
+        
+        
+
+def create_merged_dataset(pcd_path, output_base, element_class, num_scans, density, num_views=3, test_split=0.1):
+    # load data
+    metadata_file = os.path.join(output_base, element_class, 'metadata.json')
+    f = open(metadata_file, 'r')
+    metadata = json.load(f)
+    
+    scans = os.listdir(pcd_path)
+    unique_files = set()
+    for sc in scans:
+        element = int(sc.split('_')[0])
+        unique_files.add(element)
+    
+    print(unique_files)
+    # merge multiple views
+    count = 0
+    metadata_new = {}
+    train_clouds = {}
+    test_clouds = {}
+    test_point = int(len(unique_files)*(1-test_split))
+    print(test_point)
+    for k, un in enumerate(unique_files):
+        for i in range(num_scans-num_views):
+            points = []
+            for j in range(num_views):
+                file_path = os.path.join(pcd_path, (str(un) + '_' + str(i+j) + '.pcd'))
+                pcd = o3d.io.read_point_cloud(file_path)
+                points.append(pcd.points)               
+
+            #merged.points = o3d.utility.Vector3dVector(np.vstack(points))
+            merged_points = np.vstack(points)
+            metadata_new[str(count)] = metadata[str(un)]
+            metadata_new[str(count)]['initial_ifc'] = un
+            if k < test_point:
+                train_clouds[str(count)] = merged_points
+            else:
+                test_clouds[str(count)] = merged_points
+                
+            count += 1
+
+    # resample and save_data
+    test_path = os.path.join(output_base, element_class, 'test')
+    train_path = os.path.join(output_base, element_class, 'train')
+    try:
+        os.mkdir(test_path)
+        os.mkdir(train_path)
+    except:
+        pass
+    
+    for k in train_clouds.keys():
+        sampled_points = random_resample_cloud(train_clouds[k], density)
+        save_cloud(sampled_points, train_path, k)
+        
+    for k in test_clouds.keys():
+        sampled_points = random_resample_cloud(test_clouds[k], density)
+        save_cloud(sampled_points, test_path, k)
+
+    with open(os.path.join(output_base, element_class, 'metadata_new.json'), 'w') as f:
+        json.dump(metadata_new, f)
