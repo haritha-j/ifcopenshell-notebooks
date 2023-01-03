@@ -12,19 +12,19 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 
 class Tnet(nn.Module):
-   def __init__(self, k=3):
+   def __init__(self, k=3, input_size=1024):
       super().__init__()
       self.k=k
       self.conv1 = nn.Conv1d(k,64,1)
       self.conv2 = nn.Conv1d(64,128,1)
-      self.conv3 = nn.Conv1d(128,1024,1)
-      self.fc1 = nn.Linear(1024,512)
+      self.conv3 = nn.Conv1d(128,input_size,1)
+      self.fc1 = nn.Linear(input_size,512)
       self.fc2 = nn.Linear(512,256)
       self.fc3 = nn.Linear(256,k*k)
 
       self.bn1 = nn.BatchNorm1d(64)
       self.bn2 = nn.BatchNorm1d(128)
-      self.bn3 = nn.BatchNorm1d(1024)
+      self.bn3 = nn.BatchNorm1d(input_size)
       self.bn4 = nn.BatchNorm1d(512)
       self.bn5 = nn.BatchNorm1d(256)
        
@@ -49,19 +49,19 @@ class Tnet(nn.Module):
 
 
 class Transform(nn.Module):
-   def __init__(self):
+   def __init__(self, input_size=1024):
         super().__init__()
-        self.input_transform = Tnet(k=3)
+        self.input_transform = Tnet(k=3, input_size=input_size)
         self.feature_transform = Tnet(k=64)
         self.conv1 = nn.Conv1d(3,64,1)
 
         self.conv2 = nn.Conv1d(64,128,1)
-        self.conv3 = nn.Conv1d(128,1024,1)
+        self.conv3 = nn.Conv1d(128,input_size,1)
        
 
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
-        self.bn3 = nn.BatchNorm1d(1024)
+        self.bn3 = nn.BatchNorm1d(input_size)
        
    def forward(self, input):
         matrix3x3 = self.input_transform(input)
@@ -80,10 +80,10 @@ class Transform(nn.Module):
         return output, matrix3x3, matrix64x64
 
 class PointNet(nn.Module):
-    def __init__(self, outputs = 2):
+    def __init__(self, outputs = 2, input_size = 1024):
         super().__init__()
-        self.transform = Transform()
-        self.fc1 = nn.Linear(1024, 512)
+        self.transform = Transform(input_size)
+        self.fc1 = nn.Linear(input_size, 512)
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, outputs)
         

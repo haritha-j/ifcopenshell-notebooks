@@ -19,9 +19,10 @@ if __name__ == '__main__':
         print(f)
         out = f.split(".")[0] + ".obj"
 
-        if f.split(".")[1] =='ifc':
-            cmds = ("./IfcConvert", os.path.join(args.input_dir, f), os.path.join(args.output_dir, out))
-            popen = subprocess.Popen(cmds, stdout=subprocess.PIPE)
-            popen.wait()
-            output = popen.stdout.read()
-            print (output)
+        if len(f.split(".")) > 1:
+            if f.split(".")[1] =='ifc':
+                cmds = ("./IfcConvert", os.path.join(args.input_dir, f), os.path.join(args.output_dir, out))
+                popen = subprocess.Popen(cmds, stdout=subprocess.PIPE)
+                popen.wait()
+                output = popen.stdout.read()
+                print (output)

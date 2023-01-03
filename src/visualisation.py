@@ -13,7 +13,7 @@ from utils.JupyterIFCRenderer import JupyterIFCRenderer
 import plotly.graph_objects as go
 import plotly.express as px
 
-from src.geometry import get_corner, get_oriented_bbox, sq_distance
+from src.geometry import vector_norm
 from src.elements import *
 
 
@@ -25,8 +25,21 @@ def vis_ifc_and_cloud(ifc, cloud, colour="#abe000"):
     return viewer
 
 
+# reover axis direction from six trig values starting from index k
+def get_direction_from_trig(preds, k):
+    return [math.atan2(preds[k], preds[k+1]), 
+        math.atan2(preds[k+2], preds[k+3]), 
+        math.atan2(preds[k+4], preds[k+5])]  
+
+
+# reover axis direction from 2 position values starting from index k, j
+def get_direction_from_position(preds, k, j):
+    dir = [(preds[k] - preds[j]), (preds[k+1] - preds[j+1]), (preds[k+2] - preds[j+2])]
+    return vector_norm(dir)
+
+
 # visualize predictions side by side with ifc
-def visualize_predictions(cloud, element, preds, blueprint):
+def visualize_predictions(cloud, element, preds, blueprint, use_directions = False):
     ifc = setup_ifc_file(blueprint)
     owner_history = ifc.by_type("IfcOwnerHistory")[0]
     project = ifc.by_type("IfcProject")[0]
@@ -58,18 +71,17 @@ def visualize_predictions(cloud, element, preds, blueprint):
                         pm['y'], pm['axis_dir'], ifc, ifc_info)
         
     elif element == 'tee':
-        pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3], 
-              'd1':[preds[4], preds[5], preds[6]], 
-              'd2':[preds[7], preds[8], preds[9]] }
-        
-        pm['d1'] = [math.atan2(preds[7], preds[8]), 
-        math.atan2(preds[9], preds[10]), 
-        math.atan2(preds[11], preds[12])]        
-        pm['d2'] = [math.atan2(preds[13], preds[14]), 
-        math.atan2(preds[15], preds[16]), 
-        math.atan2(preds[17], preds[18])]
+        pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3]}
         pm['p1'] = [preds[4]*1000, preds[5]*1000, preds[6]*1000]
-        pm['p2'] = (np.array(pm['p1']) + (np.array(pm['d1']) * np.array(pm['l1']) * 0.5)).tolist()
+
+        if use_directions:
+            pm['d1'] = get_direction_from_trig(preds, 7)       
+            pm['d2'] = get_direction_from_trig(preds, 13)
+            pm['p2'] = (np.array(pm['p1']) + (np.array(pm['d1']) * np.array(pm['l1']) * 0.5)).tolist()
+        else:
+            pm['d1'] = get_direction_from_position(preds, 7, 4)
+            pm['d2'] = get_direction_from_position(preds, 10, 7)
+            pm['p2'] = [preds[7]*1000, preds[8]*1000, preds[9]*1000]
         print(pm)
         
         create_IfcTee(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d1'], 

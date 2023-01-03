@@ -11,19 +11,28 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from path import Path
 
-from src.preperation import *
+from src.preparation import *
 
-def parse_tee_properties(element_data):
+def parse_tee_properties(element_data, use_directions = False):
   #target = [element_data['radius']/1000, element_data['length']/1000]
   scaled_targets = [element_data['radius1']/1000, element_data['length1']/1000, 
                     element_data['radius2']/1000, element_data['length2']/1000]
   unscaled_targets = [element_data['position1'][0]/1000, element_data['position1'][1]/1000,
                       element_data['position1'][2]/1000]
-  for dir in ['direction1', 'direction2']:
+  if use_directions:
+    for dir in ['direction1', 'direction2']:
+      for i in range(3):
+        unscaled_targets.append(math.sin(element_data[dir][i]))
+        unscaled_targets.append(math.cos(element_data[dir][i]))
+  else:
+    p2 = (np.array(element_data['position1'])/1000 + 
+    (np.array(element_data['direction1']) * np.array(element_data['length1']/1000 * 0.5))).tolist()
     for i in range(3):
-      unscaled_targets.append(math.sin(element_data[dir][i]))
-      unscaled_targets.append(math.cos(element_data[dir][i]))
-
+      unscaled_targets.append(p2[i])
+    p3 = (np.array(p2) + 
+    (np.array(element_data['direction2']) * np.array(element_data['length2']/1000))).tolist()
+    for i in range(3):
+      unscaled_targets.append(p3[i])
 
   #target = [element_data['radius']/1000]
   return np.array(scaled_targets), np.array(unscaled_targets)
