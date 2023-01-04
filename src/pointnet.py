@@ -17,16 +17,20 @@ class Tnet(nn.Module):
       self.k=k
       self.conv1 = nn.Conv1d(k,64,1)
       self.conv2 = nn.Conv1d(64,128,1)
-      self.conv3 = nn.Conv1d(128,input_size,1)
-      self.fc1 = nn.Linear(input_size,512)
-      self.fc2 = nn.Linear(512,256)
-      self.fc3 = nn.Linear(256,k*k)
+      self.conv3 = nn.Conv1d(128,256,1)
+      self.conv4 = nn.Conv1d(256,input_size,1)
+      self.fc1 = nn.Linear(input_size,1024)
+      self.fc2 = nn.Linear(1024,512)
+      self.fc3 = nn.Linear(512,256)
+      self.fc4 = nn.Linear(256,k*k)
 
       self.bn1 = nn.BatchNorm1d(64)
       self.bn2 = nn.BatchNorm1d(128)
-      self.bn3 = nn.BatchNorm1d(input_size)
-      self.bn4 = nn.BatchNorm1d(512)
-      self.bn5 = nn.BatchNorm1d(256)
+      self.bn3 = nn.BatchNorm1d(256)
+      self.bn4 = nn.BatchNorm1d(input_size)
+      self.bn5 = nn.BatchNorm1d(1024)
+      self.bn6 = nn.BatchNorm1d(512)
+      self.bn7 = nn.BatchNorm1d(256)
        
 
    def forward(self, input):
@@ -35,16 +39,18 @@ class Tnet(nn.Module):
       xb = F.relu(self.bn1(self.conv1(input)))
       xb = F.relu(self.bn2(self.conv2(xb)))
       xb = F.relu(self.bn3(self.conv3(xb)))
+      xb = F.relu(self.bn4(self.conv4(xb)))
       pool = nn.MaxPool1d(xb.size(-1))(xb)
       flat = nn.Flatten(1)(pool)
-      xb = F.relu(self.bn4(self.fc1(flat)))
-      xb = F.relu(self.bn5(self.fc2(xb)))
+      xb = F.relu(self.bn5(self.fc1(flat)))
+      xb = F.relu(self.bn6(self.fc2(xb)))
+      xb = F.relu(self.bn7(self.fc3(xb)))
       
       #initialize as identity
       init = torch.eye(self.k, requires_grad=True).repeat(bs,1,1)
       if xb.is_cuda:
         init=init.cuda()
-      matrix = self.fc3(xb).view(-1,self.k,self.k) + init
+      matrix = self.fc4(xb).view(-1,self.k,self.k) + init
       return matrix
 
 
@@ -56,12 +62,14 @@ class Transform(nn.Module):
         self.conv1 = nn.Conv1d(3,64,1)
 
         self.conv2 = nn.Conv1d(64,128,1)
-        self.conv3 = nn.Conv1d(128,input_size,1)
+        self.conv3 = nn.Conv1d(128,256,1)
+        self.conv4 = nn.Conv1d(256,input_size,1)
        
 
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
-        self.bn3 = nn.BatchNorm1d(input_size)
+        self.bn3 = nn.BatchNorm1d(256)
+        self.bn4 = nn.BatchNorm1d(input_size)
        
    def forward(self, input):
         matrix3x3 = self.input_transform(input)
@@ -74,7 +82,9 @@ class Transform(nn.Module):
         xb = torch.bmm(torch.transpose(xb,1,2), matrix64x64).transpose(1,2)
 
         xb = F.relu(self.bn2(self.conv2(xb)))
-        xb = self.bn3(self.conv3(xb))
+        xb = F.relu(self.bn3(self.conv3(xb)))
+        
+        xb = self.bn4(self.conv4(xb))
         xb = nn.MaxPool1d(xb.size(-1))(xb)
         output = nn.Flatten(1)(xb)
         return output, matrix3x3, matrix64x64
@@ -83,13 +93,15 @@ class PointNet(nn.Module):
     def __init__(self, outputs = 2, input_size = 1024):
         super().__init__()
         self.transform = Transform(input_size)
-        self.fc1 = nn.Linear(input_size, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, outputs)
+        self.fc1 = nn.Linear(input_size, 1024)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc3 = nn.Linear(512, 256)
+        self.fc4 = nn.Linear(256, outputs)
         
 
-        self.bn1 = nn.BatchNorm1d(512)
-        self.bn2 = nn.BatchNorm1d(256)
+        self.bn1 = nn.BatchNorm1d(1024)
+        self.bn2 = nn.BatchNorm1d(512)
+        self.bn3 = nn.BatchNorm1d(256)
         self.dropout = nn.Dropout(p=0.3)
 
 
@@ -97,7 +109,8 @@ class PointNet(nn.Module):
         xb, matrix3x3, matrix64x64 = self.transform(input)
         xb = F.relu(self.bn1(self.fc1(xb)))
         xb = F.relu(self.bn2(self.dropout(self.fc2(xb))))
-        output = self.fc3(xb)
+        xb = F.relu(self.bn3(self.dropout(self.fc3(xb))))
+        output = self.fc4(xb)
         return output, matrix3x3, matrix64x64
 
 

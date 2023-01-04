@@ -13,7 +13,7 @@ from path import Path
 
 from src.preparation import *
 
-def parse_tee_properties(element_data, use_directions = False):
+def parse_tee_properties(element_data, use_directions = True):
   #target = [element_data['radius']/1000, element_data['length']/1000]
   scaled_targets = [element_data['radius1']/1000, element_data['length1']/1000, 
                     element_data['radius2']/1000, element_data['length2']/1000]

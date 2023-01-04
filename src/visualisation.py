@@ -39,7 +39,7 @@ def get_direction_from_position(preds, k, j):
 
 
 # visualize predictions side by side with ifc
-def visualize_predictions(cloud, element, preds, blueprint, use_directions = False):
+def visualize_predictions(cloud, element, preds, blueprint, use_directions = True):
     ifc = setup_ifc_file(blueprint)
     owner_history = ifc.by_type("IfcOwnerHistory")[0]
     project = ifc.by_type("IfcProject")[0]
