@@ -39,7 +39,7 @@ def get_direction_from_position(preds, k, j):
 
 
 # visualize predictions side by side with ifc
-def visualize_predictions(cloud, element, preds, blueprint, use_directions = True):
+def visualize_predictions(cloud, element, preds, blueprint, use_directions = True, visualize=True):
     ifc = setup_ifc_file(blueprint)
     owner_history = ifc.by_type("IfcOwnerHistory")[0]
     project = ifc.by_type("IfcProject")[0]
@@ -52,19 +52,22 @@ def visualize_predictions(cloud, element, preds, blueprint, use_directions = Tru
        "floor": floor}
     
     if element == 'pipe':
-        pm = {'r':preds[0], 'l':preds[1], 'd':[preds[2], preds[3], preds[4]] }
+        pm = {'r':preds[0], 'l':preds[1] }
+        pm['d'] = get_direction_from_trig(preds, 2)
         pm['p'] = [-((pm['l']*pm['d'][i])/2) for i in range(3)]
         #print(pm)
         
         create_IfcPipe(pm['r'], pm['l'], pm['d'], pm['p'], ifc, ifc_info)
         
     elif element == 'elbow':
-        pm = {'r':preds[0], 'x':preds[1], 'y':preds[2], 'd':[preds[3], preds[4], preds[5]], 
-              'a':preds[6] }
+        pm = {'r':preds[0], 'x':preds[1], 'y':preds[2]}
+
         theta = math.atan(pm['x']/pm['y'])
         pm['axis_dir'] = [math.cos(theta), math.sin(theta)]
         # pm['p'] = [0.0, 0.0, 0.0]
-        pm['p'] = [preds[7]*1000, preds[8]*1000, preds[9]*1000]
+        pm['a'] = math.atan2(preds[3], preds[4])
+        pm['p'] = [preds[5]*1000, preds[6]*1000, preds[7]*1000]
+        pm['d'] = get_direction_from_trig(preds, 8)
         print(pm)
         
         create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
@@ -87,7 +90,10 @@ def visualize_predictions(cloud, element, preds, blueprint, use_directions = Tru
         create_IfcTee(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d1'], 
                       pm['d2'], pm['p1'], pm['p2'], ifc, ifc_info)
 
-    return vis_ifc_and_cloud(ifc, cloud)
+    if visualize:
+        return vis_ifc_and_cloud(ifc, cloud), ifc
+    else:
+        return ifc
 
 
 def visualize_rotate(data):

@@ -40,8 +40,11 @@ def parse_tee_properties(element_data, use_directions = True):
 
 def parse_pipe_properties(element_data):
   scaled_targets = [element_data['radius']/1000, element_data['length']/1000]
-  unscaled_targets = [element_data['direction'][0], element_data['direction'][1],
-                      element_data['direction'][2]]
+  unscaled_targets = []
+
+  for i in range(3):
+    unscaled_targets.append(math.sin(element_data['direction'][i]))
+    unscaled_targets.append(math.cos(element_data['direction'][i]))
 
   return np.array(scaled_targets), np.array(unscaled_targets)
 
@@ -50,13 +53,17 @@ def parse_elbow_properties(element_data):
   #target = [element_data['radius']/1000, element_data['length']/1000]
   scaled_targets = [element_data['radius']/1000, element_data['axis_x']/1000, 
                     element_data['axis_y']/1000]
-  unscaled_targets = [element_data['direction'][0], element_data['direction'][1], 
-                      element_data['direction'][2],  element_data['angle']/200,
+  unscaled_targets = [math.sin(math.radians(element_data['angle'])), 
+                      math.cos(math.radians(element_data['angle'])),
                       element_data['position'][0]/1000, element_data['position'][1]/1000,
                       element_data['position'][2]/1000]
   #target = [element_data['radius']/1000]
-  return np.array(scaled_targets), np.array(unscaled_targets)
 
+  for i in range(3):
+    unscaled_targets.append(math.sin(element_data['direction'][i]))
+    unscaled_targets.append(math.cos(element_data['direction'][i]))
+
+  return np.array(scaled_targets), np.array(unscaled_targets)
 
 def default_transforms():
     return transforms.Compose([

@@ -5,6 +5,7 @@ import os
 import json
 import torch
 import copy
+from tqdm import tqdm
 
 import open3d as o3d
 
@@ -13,6 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from path import Path
 
+from pointnet2.data_utils.ModelNetDataLoader import farthest_point_sample
 
 def read_pcd(file):
     pcd = o3d.io.read_point_cloud(str(file))
@@ -72,15 +74,18 @@ class ToTensor(object):
         return (torch.from_numpy(pointcloud).float(), torch.from_numpy(properties).float())
 
 
-def random_resample_cloud(points, density):
+def random_resample_cloud(points, density, uniform_sampling):
     indices = np.arange(points.shape[0])
     if (len(points) > density):
-        sampled_indices = np.random.choice(indices, density, replace=False)
+        if uniform_sampling:
+            sampled_points = farthest_point_sample(points, density)
+        else:
+            sampled_points = points[np.random.choice(indices, density, replace=False)]
     else:
-        sampled_indices = np.random.choice(indices, density, replace=True)
+        sampled_points = points[np.random.choice(indices, density, replace=True)]
         
     #print(len(sampled_indices))
-    return(points[sampled_indices])
+    return(sampled_points)
         
 
 def save_cloud(points, output_base, name):
@@ -127,7 +132,7 @@ def synthetic_dataset(config, sample_size, element_class, output_base, blueprint
         
         
 
-def create_merged_dataset(pcd_path, output_base, element_class, num_scans, density, num_views=3, test_split=0.1):
+def create_merged_dataset(pcd_path, output_base, element_class, num_scans, density, num_views=3, test_split=0.1, uniform_sampling=False):
     # load data
     metadata_file = os.path.join(output_base, element_class, 'metadata.json')
     f = open(metadata_file, 'r')
@@ -139,7 +144,6 @@ def create_merged_dataset(pcd_path, output_base, element_class, num_scans, densi
         element = int(sc.split('_')[0])
         unique_files.add(element)
     
-    print(unique_files)
     # merge multiple views
     count = 0
     metadata_new = {}
@@ -167,21 +171,21 @@ def create_merged_dataset(pcd_path, output_base, element_class, num_scans, densi
             count += 1
 
     # resample and save_data
-    test_path = os.path.join(output_base, element_class, 'test')
-    train_path = os.path.join(output_base, element_class, 'train')
+    test_path = os.path.join(output_base, element_class, 'x', 'test')
+    train_path = os.path.join(output_base, element_class, 'x', 'train')
     try:
         os.mkdir(test_path)
         os.mkdir(train_path)
     except:
         pass
     
-    for k in train_clouds.keys():
-        sampled_points = random_resample_cloud(train_clouds[k], density)
+    for k in tqdm(train_clouds.keys()):
+        sampled_points = random_resample_cloud(train_clouds[k], density, uniform_sampling)
         save_cloud(sampled_points, train_path, k)
         
-    for k in test_clouds.keys():
-        sampled_points = random_resample_cloud(test_clouds[k], density)
+    for k in tqdm(test_clouds.keys()):
+        sampled_points = random_resample_cloud(test_clouds[k], density, uniform_sampling)
         save_cloud(sampled_points, test_path, k)
 
-    with open(os.path.join(output_base, element_class, 'metadata_new.json'), 'w') as f:
+    with open(os.path.join(output_base, element_class, 'x', 'metadata_new.json'), 'w') as f:
         json.dump(metadata_new, f)

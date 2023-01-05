@@ -197,7 +197,6 @@ def main(args):
             if (loss <= best_loss):
                 best_loss = loss
                 best_epoch = epoch + 1
-
      
             log_string('Test loss: %f' % (loss))
             log_string('Best loss: %f' % (best_loss))
