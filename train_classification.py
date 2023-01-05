@@ -17,8 +17,6 @@ import torch.nn as nn
 
 from pathlib import Path
 from tqdm import tqdm
-import pointnet2.provider
-from pointnet2.data_utils.ModelNetDataLoader import ModelNetDataLoader
 
 from src.preparation import *
 from src.dataset import *
@@ -36,7 +34,6 @@ def parse_args():
     parser.add_argument('--gpu', type=str, default='0', help='specify gpu device')
     parser.add_argument('--batch_size', type=int, default=24, help='batch size in training')
     parser.add_argument('--model', default='pointnet_cls', help='model name [default: pointnet_cls]')
-    parser.add_argument('--num_category', default=40, type=int, choices=[10, 40],  help='training on ModelNet10/40')
     parser.add_argument('--epoch', default=200, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='learning rate in training')
     parser.add_argument('--num_point', type=int, default=2048, help='Point Number')
@@ -45,7 +42,6 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--use_normals', action='store_true', default=False, help='use normals')
     parser.add_argument('--process_data', action='store_true', default=False, help='save data offline')
-    parser.add_argument('--use_uniform_sample', action='store_true', default=False, help='use uniform sampiling')
     return parser.parse_args()
 
 
@@ -55,24 +51,19 @@ def inplace_relu(m):
         m.inplace=True
 
 
-def test(model, loader, device, criterion, num_class=40):
+def test(model, loader, device, criterion):
     losses = []
     predictor = model.eval()
 
     for j, data  in tqdm(enumerate(loader), total=len(loader)):
         points, target = data['pointcloud'].to(device).float(), data['properties'].to(device)
-        # if not args.use_cpu:
-        #     points, target = points.cuda(), target.cuda()
 
         points = points.transpose(2, 1)
         pred, _ = predictor(points)
         loss = criterion(pred, target)
-
-
         losses.append(loss)
 
     avg_loss = sum(losses)/len(losses)
-
     return avg_loss
 
 def _make_dir(exp_dir):
@@ -136,17 +127,8 @@ def main(args):
 
     '''DATA LOADING'''
     log_string('Load dataset ...')
-    #data_path = 'pointnet2/data/modelnet40_normal_resampled/'
-
-    #train_dataset = ModelNetDataLoader(root=data_path, args=args, split='train', process_data=args.process_data)
-    #test_dataset = ModelNetDataLoader(root=data_path, args=args, split='test', process_data=args.process_data)
-
-
-    # trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
-    # testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=10)
 
     '''MODEL LOADING'''
-    num_class = args.num_category
     model = importlib.import_module(args.model)
     shutil.copy('pointnet2/models/%s.py' % args.model, str(exp_dir))
     shutil.copy('pointnet2/models/pointnet2_utils.py', str(exp_dir))
@@ -197,33 +179,22 @@ def main(args):
         for batch_id, data in tqdm(enumerate(trainDataLoader, 0), total=len(trainDataLoader), smoothing=0.9):
             optimizer.zero_grad()
             points, target = data['pointcloud'].to(device).float(), data['properties'].to(device)
-            # points = points.data.numpy()
-            # points = provider.random_point_dropout(points)
-            # points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
-            # points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
-            # points = torch.Tensor(points)
-            points = points.transpose(2, 1)
 
-            # if not args.use_cpu:
-            #     points, target = points.cuda(), target.cuda()
+            points = points.transpose(2, 1)
 
             pred, trans_feat = predictor(points)
             loss = criterion(pred, target, trans_feat)
-            # pred_choice = pred.data.max(1)[1]
 
-            #correct = pred_choice.eq(target.long().data).cpu().sum()
-            #mean_correct.append(correct.item() / float(points.size()[0]))
             loss.backward()
             optimizer.step()
             global_step += 1
 
-        #train_instance_acc = np.mean(mean_correct)
         log_string('Train loss: %f' % loss)
 
         with torch.no_grad():
-            loss = test(predictor.eval(), testDataLoader, device, test_criterion, num_class=num_class)
+            loss = test(predictor.eval(), testDataLoader, device, test_criterion)
 
-            if (loss < best_loss):
+            if (loss <= best_loss):
                 best_loss = loss
                 best_epoch = epoch + 1
 
@@ -231,7 +202,7 @@ def main(args):
             log_string('Test loss: %f' % (loss))
             log_string('Best loss: %f' % (best_loss))
 
-            if (loss < best_loss):
+            if (loss <= best_loss):
                 logger.info('Save model...')
                 savepath = str(checkpoints_dir) + '/best_model.pth'
                 log_string('Saving at %s' % savepath)
