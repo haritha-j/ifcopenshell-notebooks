@@ -17,8 +17,8 @@ def parse_tee_properties(element_data, use_directions = True):
   #target = [element_data['radius']/1000, element_data['length']/1000]
   scaled_targets = [element_data['radius1']/1000, element_data['length1']/1000, 
                     element_data['radius2']/1000, element_data['length2']/1000]
-  unscaled_targets = [element_data['position1'][0]/1000, element_data['position1'][1]/1000,
-                      element_data['position1'][2]/1000]
+  unscaled_targets = [element_data['position2'][0]/1000, element_data['position2'][1]/1000,
+                      element_data['position2'][2]/1000]
   if use_directions:
     for dir in ['direction1', 'direction2']:
       for i in range(3):
@@ -96,7 +96,7 @@ class PointCloudData(Dataset):
                 elif category == 'elbow':
                     sample['scaled_properties'], sample['unscaled_properties'] = parse_elbow_properties(
                         metadata[file.split(".")[0]])
-                elif category == 'tee':
+                elif category == 'tee' or 'x':
                     sample['scaled_properties'], sample['unscaled_properties'] = parse_tee_properties(
                         metadata[file.split(".")[0]])
                 self.files.append(sample)

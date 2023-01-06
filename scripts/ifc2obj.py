@@ -26,3 +26,5 @@ if __name__ == '__main__':
                 popen.wait()
                 output = popen.stdout.read()
                 print (output)
+
+                # if args.sample_points:
