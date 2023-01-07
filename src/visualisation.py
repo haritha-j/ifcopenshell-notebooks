@@ -39,7 +39,7 @@ def get_direction_from_position(preds, k, j):
 
 
 # visualize predictions side by side with ifc
-def visualize_predictions(cloud, element, preds, blueprint, use_directions = True, visualize=True):
+def visualize_predictions(cloud, element, preds_list, blueprint, use_directions = True, visualize=True):
     ifc = setup_ifc_file(blueprint)
     owner_history = ifc.by_type("IfcOwnerHistory")[0]
     project = ifc.by_type("IfcProject")[0]
@@ -51,44 +51,43 @@ def visualize_predictions(cloud, element, preds, blueprint, use_directions = Tru
        "context": context, 
        "floor": floor}
     
-    if element == 'pipe':
-        pm = {'r':preds[0], 'l':preds[1] }
-        pm['d'] = get_direction_from_trig(preds, 2)
-        pm['p'] = [-((pm['l']*pm['d'][i])/2) for i in range(3)]
-        #print(pm)
-        
-        create_IfcPipe(pm['r'], pm['l'], pm['d'], pm['p'], ifc, ifc_info)
-        
-    elif element == 'elbow':
-        pm = {'r':preds[0], 'x':preds[1], 'y':preds[2]}
+    for preds in preds_list:
+        if element == 'pipe':
+            pm = {'r':preds[0], 'l':preds[1] }
+            pm['d'] = get_direction_from_trig(preds, 2)
+            pm['p'] = [-((pm['l']*pm['d'][i])/2) for i in range(3)]
+            #print(pm)
+            
+            create_IfcPipe(pm['r'], pm['l'], pm['d'], pm['p'], ifc, ifc_info)
+            
+        elif element == 'elbow':
+            pm = {'r':preds[0], 'x':preds[1], 'y':preds[2]}
 
-        theta = math.atan(pm['x']/pm['y'])
-        pm['axis_dir'] = [math.cos(theta), math.sin(theta)]
-        # pm['p'] = [0.0, 0.0, 0.0]
-        pm['a'] = math.atan2(preds[3], preds[4])
-        pm['p'] = [preds[5]*1000, preds[6]*1000, preds[7]*1000]
-        pm['d'] = get_direction_from_trig(preds, 8)
-        print(pm)
-        
-        create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
-                        pm['y'], pm['axis_dir'], ifc, ifc_info)
-        
-    elif element == 'tee':
-        pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3]}
-        pm['p1'] = [preds[4]*1000, preds[5]*1000, preds[6]*1000]
+            theta = math.atan(pm['x']/pm['y'])
+            pm['axis_dir'] = [math.cos(theta), math.sin(theta)]
+            # pm['p'] = [0.0, 0.0, 0.0]
+            pm['a'] = math.atan2(preds[3], preds[4])
+            pm['p'] = [preds[5]*1000, preds[6]*1000, preds[7]*1000]
+            pm['d'] = get_direction_from_trig(preds, 8)
+            
+            create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
+                            pm['y'], pm['axis_dir'], ifc, ifc_info)
+            
+        elif element == 'tee':
+            pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3]}
+            pm['p2'] = [preds[4]*1000, preds[5]*1000, preds[6]*1000]
 
-        if use_directions:
-            pm['d1'] = get_direction_from_trig(preds, 7)       
-            pm['d2'] = get_direction_from_trig(preds, 13)
-            pm['p2'] = (np.array(pm['p1']) + (np.array(pm['d1']) * np.array(pm['l1']) * 0.5)).tolist()
-        else:
-            pm['d1'] = get_direction_from_position(preds, 7, 4)
-            pm['d2'] = get_direction_from_position(preds, 10, 7)
-            pm['p2'] = [preds[7]*1000, preds[8]*1000, preds[9]*1000]
-        print(pm)
-        
-        create_IfcTee(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d1'], 
-                      pm['d2'], pm['p1'], pm['p2'], ifc, ifc_info)
+            if use_directions:
+                pm['d1'] = get_direction_from_trig(preds, 7)       
+                pm['d2'] = get_direction_from_trig(preds, 13)
+                pm['p1'] = (np.array(pm['p2']) - (np.array(pm['d1']) * np.array(pm['l1']) * 0.5)).tolist()
+            else:
+                pm['d1'] = get_direction_from_position(preds, 7, 4)
+                pm['d2'] = get_direction_from_position(preds, 10, 7)
+                pm['p2'] = [preds[7]*1000, preds[8]*1000, preds[9]*1000]
+            
+            create_IfcTee(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d1'], 
+                        pm['d2'], pm['p1'], pm['p2'], ifc, ifc_info)
 
     if visualize:
         return vis_ifc_and_cloud(ifc, cloud), ifc

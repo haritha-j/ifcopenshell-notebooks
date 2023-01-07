@@ -14,6 +14,9 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from path import Path
 
+from src.ifc import setup_ifc_file
+from src.elements import *
+
 from pointnet2.data_utils.ModelNetDataLoader import farthest_point_sample
 
 def read_pcd(file):
@@ -120,7 +123,7 @@ def synthetic_dataset(config, sample_size, element_class, output_base, blueprint
         if element_class == 'pipe':
             e = create_pipe(config_data[element_class], ifc, ifc_info)
         if element_class == 'elbow':
-            e = create_elbow(config_data[element_class], ifc, ifc_info, blueprint)
+            e = create_elbow(config_data[element_class], ifc, ifc_info, blueprint, i)
         elif element_class == 'tee':
             e = create_tee(config_data[element_class], ifc, ifc_info, blueprint)
     
@@ -171,8 +174,8 @@ def create_merged_dataset(pcd_path, output_base, element_class, num_scans, densi
             count += 1
 
     # resample and save_data
-    test_path = os.path.join(output_base, element_class, 'x', 'test')
-    train_path = os.path.join(output_base, element_class, 'x', 'train')
+    test_path = os.path.join(output_base, element_class, 'test')
+    train_path = os.path.join(output_base, element_class, 'train')
     try:
         os.mkdir(test_path)
         os.mkdir(train_path)
@@ -187,5 +190,5 @@ def create_merged_dataset(pcd_path, output_base, element_class, num_scans, densi
         sampled_points = random_resample_cloud(test_clouds[k], density, uniform_sampling)
         save_cloud(sampled_points, test_path, k)
 
-    with open(os.path.join(output_base, element_class, 'x', 'metadata_new.json'), 'w') as f:
+    with open(os.path.join(output_base, element_class, 'metadata_new.json'), 'w') as f:
         json.dump(metadata_new, f)
