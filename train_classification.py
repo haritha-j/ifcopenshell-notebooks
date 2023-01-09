@@ -89,6 +89,7 @@ def main(args):
 #                    RandomNoise(),
                     ToTensor()
                     ])
+
     cat= 'elbow'
     train_ds = PointCloudData(path, category=cat, transform=train_transforms)
     valid_ds = PointCloudData(path, valid=True, folder='test', category=cat, transform=train_transforms)
@@ -124,9 +125,6 @@ def main(args):
     logger.addHandler(file_handler)
     log_string('PARAMETER ...')
     log_string(args)
-
-    '''DATA LOADING'''
-    log_string('Load dataset ...')
 
     '''MODEL LOADING'''
     model = importlib.import_module(args.model)

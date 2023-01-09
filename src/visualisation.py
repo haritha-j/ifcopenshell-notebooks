@@ -1,15 +1,10 @@
 # viusalize elements / relationships
 
-import json
 import math
-import uuid
-
-import ifcopenshell
 import numpy as np
-import open3d as o3d
+
 from OCC.Core.gp import gp_Pnt
 from utils.JupyterIFCRenderer import JupyterIFCRenderer
-
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -64,12 +59,13 @@ def visualize_predictions(cloud, element, preds_list, blueprint, use_directions 
             pm = {'r':preds[0], 'x':preds[1], 'y':preds[2]}
 
             theta = math.atan(pm['x']/pm['y'])
-            pm['axis_dir'] = [math.cos(theta), math.sin(theta)]
+            pm['axis_dir'] = [math.cos(theta), -1*math.sin(theta)]
             # pm['p'] = [0.0, 0.0, 0.0]
-            pm['a'] = math.atan2(preds[3], preds[4])
+            pm['a'] = math.degrees(math.atan2(preds[3], preds[4]))
+
             pm['p'] = [preds[5]*1000, preds[6]*1000, preds[7]*1000]
             pm['d'] = get_direction_from_trig(preds, 8)
-            
+
             create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
                             pm['y'], pm['axis_dir'], ifc, ifc_info)
             
@@ -89,6 +85,7 @@ def visualize_predictions(cloud, element, preds_list, blueprint, use_directions 
             create_IfcTee(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d1'], 
                         pm['d2'], pm['p1'], pm['p2'], ifc, ifc_info)
 
+    ifc.write("temp.ifc")
     if visualize:
         return vis_ifc_and_cloud(ifc, cloud), ifc
     else:

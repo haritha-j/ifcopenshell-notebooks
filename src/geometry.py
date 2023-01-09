@@ -1,8 +1,6 @@
 # geomtric helper operations for ifc visualisation and processing
 
 import math
-import random
-from itertools import islice
 import numpy as np
 import open3d as o3d
 
@@ -135,7 +133,6 @@ def get_dimensions (element):
     element_coords = np.array(shape.Coordinates.CoordList)
     
     return get_dimensions_points(element_coords)
-
 
 
 # convert rotational matrix to euler angles

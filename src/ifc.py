@@ -1,14 +1,10 @@
 # create ifc elements
 
-import json
 import math
 import uuid
 
 import ifcopenshell
 import numpy as np
-import open3d as o3d
-from OCC.Core.gp import gp_Pnt
-from utils.JupyterIFCRenderer import JupyterIFCRenderer
 
 from src.geometry import get_corner, get_oriented_bbox, sq_distance
 

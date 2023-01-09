@@ -4,20 +4,13 @@ import random
 import os
 import json
 import torch
-import copy
 from tqdm import tqdm
-
 import open3d as o3d
-
-import scipy.spatial.distance
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
-from path import Path
 
 from src.ifc import setup_ifc_file
 from src.elements import *
-
 from pointnet2.data_utils.ModelNetDataLoader import farthest_point_sample
+
 
 def read_pcd(file):
     pcd = o3d.io.read_point_cloud(str(file))
@@ -132,7 +125,6 @@ def synthetic_dataset(config, sample_size, element_class, output_base, blueprint
     
     with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
         json.dump(metadata, f)
-        
         
 
 def create_merged_dataset(pcd_path, output_base, element_class, num_scans, density, num_views=3, test_split=0.1, uniform_sampling=False):
