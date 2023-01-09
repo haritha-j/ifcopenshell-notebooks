@@ -13,10 +13,12 @@ from src.elements import *
 
 
 # visualize ifc model and point cloud simultaneously
-def vis_ifc_and_cloud(ifc, cloud, colour="#abe000"):
+def vis_ifc_and_cloud(ifc, clouds):
     viewer = JupyterIFCRenderer(ifc, size=(400, 300))
-    gp_pnt_list = [gp_Pnt(k[0], k[1], k[2]) for k in cloud]
-    viewer.DisplayShape(gp_pnt_list, '#abe000')
+    colours = ['#ff7070', '#70ff70', '#7070ff']
+    for i, cloud in enumerate(clouds):
+        gp_pnt_list = [gp_Pnt(k[0], k[1], k[2]) for k in cloud]
+        viewer.DisplayShape(gp_pnt_list, vertex_color=colours[i])
     return viewer
 
 
@@ -34,7 +36,7 @@ def get_direction_from_position(preds, k, j):
 
 
 # visualize predictions side by side with ifc
-def visualize_predictions(cloud, element, preds_list, blueprint, use_directions = True, visualize=True):
+def visualize_predictions(clouds, element, preds_list, blueprint, use_directions = True, visualize=True, z=(0., 0., 1.)):
     ifc = setup_ifc_file(blueprint)
     owner_history = ifc.by_type("IfcOwnerHistory")[0]
     project = ifc.by_type("IfcProject")[0]
@@ -67,7 +69,7 @@ def visualize_predictions(cloud, element, preds_list, blueprint, use_directions 
             pm['d'] = get_direction_from_trig(preds, 8)
 
             create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
-                            pm['y'], pm['axis_dir'], ifc, ifc_info)
+                            pm['y'], pm['axis_dir'], ifc, ifc_info, z=z)
             
         elif element == 'tee':
             pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3]}
@@ -87,7 +89,7 @@ def visualize_predictions(cloud, element, preds_list, blueprint, use_directions 
 
     ifc.write("temp.ifc")
     if visualize:
-        return vis_ifc_and_cloud(ifc, cloud), ifc
+        return vis_ifc_and_cloud(ifc, clouds), ifc
     else:
         return ifc
 

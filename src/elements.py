@@ -33,14 +33,14 @@ def generic_element_bbox(ifc, element_type):
 
 
 # generate Ifc Pipe fitting from parameters
-def create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info, fill=False):
+def create_IfcElbow(r, a, d, p, x, y, axis_dir, ifc, ifc_info, fill=False, z=(0., 0., 1.)):
     cross_section = Circle_Section(r=r, ifcfile=ifc, fill=fill)
 
     beam = CreateElbow(ifc, container=ifc_info['floor'], name="elbow", 
                       section=cross_section, a=a, position=p,
                       direction=d, x=x, y=y, axis_dir=axis_dir, 
                        owner_history=ifc_info["owner_history"],
-                      context=ifc_info["context"], colour=None)
+                      context=ifc_info["context"], Z=z, colour=None)
 
 
 # return axis aligned bbox, centerpoint of elbow

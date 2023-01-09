@@ -150,8 +150,7 @@ def CreateBeamGeom(ifcFile, section, L, position, direction):
 
 # create an IFC elbow
 def CreateElbow(ifcFile, container, name, section, a, x, y, axis_dir, position,
-                direction, owner_history, context, colour=None):
-    Z = 0., 0., 1.
+                direction, owner_history, context, Z, colour=None):
     X = 1., 0., 0.
     # print('length', L)
     B1 = ifcFile.createIfcPipeFitting(create_guid(), owner_history, name)
