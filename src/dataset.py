@@ -106,8 +106,8 @@ class PointCloudData(Dataset):
     def __preproc__(self, file, properties):
         cloud = read_pcd(file)
         if self.transforms:
-            pointcloud, properties = self.transforms((cloud, properties))
-        return pointcloud, properties
+            cloud, properties = self.transforms((cloud, properties))
+        return cloud, properties
 
     def __getitem__(self, idx):
         pcd_path = self.files[idx]['pcd_path']

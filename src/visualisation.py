@@ -60,13 +60,17 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
         elif element == 'elbow':
             pm = {'r':preds[0], 'x':preds[1], 'y':preds[2]}
 
-            theta = math.atan(pm['x']/pm['y'])
+            theta = math.atan2(pm['x'], pm['y'])
             pm['axis_dir'] = [math.cos(theta), -1*math.sin(theta)]
             # pm['p'] = [0.0, 0.0, 0.0]
             pm['a'] = math.degrees(math.atan2(preds[3], preds[4]))
+            
 
             pm['p'] = [preds[5]*1000, preds[6]*1000, preds[7]*1000]
             pm['d'] = get_direction_from_trig(preds, 8)
+
+            print("all", pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
+                            pm['y'], pm['axis_dir'])
 
             create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
                             pm['y'], pm['axis_dir'], ifc, ifc_info, z=z)

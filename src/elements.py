@@ -127,6 +127,10 @@ def create_elbow(config,  ifc, ifc_info, blueprint, i):
     p = [-1* centerpoint[2]*1000/bbox_l2, 1* centerpoint[1]*1000/bbox_l2, 1* centerpoint[0]*1000/bbox_l2]
     print("SD P", p)
 
+    # old_z = (0., 0., 1.)
+    # x_axis = np.cross(d, old_z).tolist()
+    # y_axis = np.cross(d, x_axis).tolist()
+
     y_axis = (0., 0., 1.)
     x_axis = np.cross(d, y_axis).tolist()
 
