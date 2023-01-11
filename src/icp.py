@@ -78,13 +78,10 @@ def transform_direction(params, t, start_index,):
 
 
 def transform_z_axis(t):
-    z = [0., 0., 1., 1.]
+    z = [0., 0., 1., 0.]
     transformed_z = np.matmul(t, np.array(z))[:-1]
-    origin = [0.,0.,0.,1.]
-    transformed_origin = np.matmul(t, np.array(origin))[:-1]
-    z_axis = transformed_z - transformed_origin
-    print("transformed z", z_axis)
-    return z_axis
+    print("transformed z", transformed_z)
+    return transformed_z
 
 
 def transform_params(params, t, cat):
