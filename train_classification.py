@@ -181,7 +181,7 @@ def main(args):
             points = points.transpose(2, 1)
 
             pred, trans_feat = predictor(points)
-            loss = criterion(pred, target, trans_feat)
+            loss = criterion(pred, target, trans_feat, points)
 
             loss.backward()
             optimizer.step()

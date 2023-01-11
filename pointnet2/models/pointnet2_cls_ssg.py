@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pointnet2_utils import PointNetSetAbstraction
 
+from src.chamfer import get_chamfer_loss
 
 class get_model(nn.Module):
     def __init__(self,outputs,normal_channel=True):
@@ -39,13 +40,14 @@ class get_model(nn.Module):
         return x, l3_points
 
 
-
 class get_loss(nn.Module):
     def __init__(self):
         super(get_loss, self).__init__()
 
-    def forward(self, pred, target, trans_feat):
+    def forward(self, pred, target, trans_feat, points):
         loss = nn.MSELoss()
         total_loss = loss(pred, target)
+        chamfer_loss = get_chamfer_loss(pred, points)
+        print("tot", total_loss, "chm", chamfer_loss)
 
         return total_loss
