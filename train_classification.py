@@ -94,7 +94,7 @@ def main(args):
     train_ds = PointCloudData(path, category=cat, transform=train_transforms)
     valid_ds = PointCloudData(path, valid=True, folder='test', category=cat, transform=train_transforms)
     targets = train_ds.targets
-    trainDataLoader = torch.utils.data.DataLoader(dataset=train_ds, batch_size=32, shuffle=True)
+    trainDataLoader = torch.utils.data.DataLoader(dataset=train_ds, batch_size=64, shuffle=True)
     testDataLoader = torch.utils.data.DataLoader(dataset=valid_ds, batch_size=64)
     test_criterion = nn.MSELoss()
 

@@ -22,7 +22,7 @@ def vis_ifc_and_cloud(ifc, clouds):
     return viewer
 
 
-# reover axis direction from six trig values starting from index k
+# recover axis direction from six trig values starting from index k
 def get_direction_from_trig(preds, k):
     return [math.atan2(preds[k], preds[k+1]), 
         math.atan2(preds[k+2], preds[k+3]), 
