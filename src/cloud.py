@@ -3,6 +3,7 @@ import random
 import numpy as np
 import open3d as o3d
 from numpy.random import default_rng
+from itertools import islice
 
 
 # pick a point uniformly in a triangle

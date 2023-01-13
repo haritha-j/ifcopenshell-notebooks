@@ -24,10 +24,10 @@ class Normalize(object):
         norm_pointcloud = pointcloud - np.mean(pointcloud, axis=0)
         norm_factor = np.max(np.linalg.norm(norm_pointcloud, axis=1))
         norm_pointcloud /= norm_factor
-        properties_norm = properties/norm_factor
-        #print(properties,properties_norm)
 
-        return  (norm_pointcloud, properties_norm)
+        if properties is not None:
+            properties = properties/norm_factor
+        return  (norm_pointcloud, properties)
   
 
 # trsansform the centerpoint of a cloud to origin
@@ -66,8 +66,11 @@ class ToTensor(object):
     def __call__(self, data):
         pointcloud, properties = data[0], data[1]
         assert len(pointcloud.shape)==2
-
-        return (torch.from_numpy(pointcloud).float(), torch.from_numpy(properties).float())
+        
+        if properties is not None:
+            return (torch.from_numpy(pointcloud).float(), torch.from_numpy(properties).float())
+        else:
+            return(torch.from_numpy(pointcloud).float(), properties)
 
 
 def random_resample_cloud(points, density, uniform_sampling):

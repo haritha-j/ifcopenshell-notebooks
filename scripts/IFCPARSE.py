@@ -9,9 +9,10 @@ from ifcopenshell.util.selector import Selector
 
 from tqdm import tqdm
 
-pipe_name = "deckboxtube.ifc"
-ip_name = "deckboxelbow.ifc"
-op_name = "deckboxelbow_ref.ifc"
+data_path = "/mnt/c/data/3D_CAD/"
+pipe_name = data_path + "deckboxtube.ifc"
+ip_name = data_path + "deckboxelbow.ifc"
+op_name = data_path + "deckboxtube_ref.ifc"
 
 # remove instances with name FTUBE
 def remove_ftubes(ip_name, op_name):
@@ -107,4 +108,5 @@ def remove_felbows(ip_name, op_name, pipe_name):
         
 
 
-remove_felbows(ip_name, op_name, pipe_name)
+#remove_felbows(ip_name, op_name, pipe_name)
+remove_ftubes(pipe_name, op_name)

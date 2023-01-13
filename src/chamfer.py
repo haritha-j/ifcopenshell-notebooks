@@ -124,7 +124,7 @@ def get_direction_from_trig_tensor(preds_tensor, k):
 
 # generate points on surface of elbow
 def generate_elbow_cloud_tensor(preds_tensor):
-    t1 = time.perf_counter()
+    # t1 = time.perf_counter()
     # read params
     tensor_size = preds_tensor.shape[0]
     r, x, y = preds_tensor[:,0]/1000, preds_tensor[:,1]/1000, preds_tensor[:,2]/1000
@@ -182,7 +182,7 @@ def generate_elbow_cloud_tensor(preds_tensor):
     ring_points = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points, 3)).cuda()
     count = 0
 
-    t2 = time.perf_counter()
+    # t2 = time.perf_counter()
 
     # iterate through rings
     for i in range(no_of_axis_points):
@@ -211,7 +211,7 @@ def generate_elbow_cloud_tensor(preds_tensor):
 
             count += 1
 
-    t3 = time.perf_counter()
-    print("cloud", t2-t1, "chamf", t3-t2)
+    # t3 = time.perf_counter()
+    # print("cloud", t2-t1, "chamf", t3-t2)
 
     return(ring_points)

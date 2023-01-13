@@ -10,7 +10,9 @@ import dgl
 from dgl.data import DGLDataset
 import torch
 
-from src.geometry import get_dimensions, element_to_cloud
+from src.geometry import get_dimensions
+from src.cloud import element_to_cloud
+
 
 # define industrial facility graph dataset
 class IndustrialFacilityDataset(DGLDataset):

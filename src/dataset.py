@@ -71,34 +71,39 @@ def default_transforms():
 
 # scaled properties must be transformed when the cloud's scale is transformed
 class PointCloudData(Dataset):
-    def __init__(self, root_dir, valid=False, folder="train", category='pipe', transform=default_transforms()):
+    def __init__(self, root_dir, valid=False, folder="train", category='pipe', transform=default_transforms(), inference=False):
         self.root_dir = root_dir
         folders = [dir for dir in sorted(os.listdir(root_dir)) if os.path.isdir(root_dir/dir)]
         self.category = category
         self.transforms = transform if not valid else default_transforms()
-        metadata_file = open(root_dir/Path(category)/"metadata_new.json", 'r')
-        metadata = json.load(metadata_file)
+        if not inference:
+          metadata_file = open(root_dir/Path(category)/"metadata_new.json", 'r')
+          metadata = json.load(metadata_file)
         self.valid = valid
+        self.inference = inference
         self.files = []
 
         new_dir = root_dir/Path(category)/folder
         for file in os.listdir(new_dir):
-            if file.endswith('.pcd'):
+            if file.endswith('.pcd') or file.endswith('.ply'):
                 sample = {}
                 sample['pcd_path'] = new_dir/file
                 sample['id'] = int(file.split(".")[0])
-                if category == 'pipe':
-                    sample['scaled_properties'], sample['unscaled_properties'] = parse_pipe_properties(
-                        metadata[file.split(".")[0]])
-                elif category == 'elbow':
-                    sample['scaled_properties'], sample['unscaled_properties'] = parse_elbow_properties(
-                        metadata[file.split(".")[0]])
-                elif category == 'tee' or 'x':
-                    sample['scaled_properties'], sample['unscaled_properties'] = parse_tee_properties(
-                        metadata[file.split(".")[0]])
+                if not self.inference:
+                  if category == 'pipe':
+                      sample['scaled_properties'], sample['unscaled_properties'] = parse_pipe_properties(
+                          metadata[file.split(".")[0]])
+                  elif category == 'elbow':
+                      sample['scaled_properties'], sample['unscaled_properties'] = parse_elbow_properties(
+                          metadata[file.split(".")[0]])
+                  elif category == 'tee' or 'x':
+                      sample['scaled_properties'], sample['unscaled_properties'] = parse_tee_properties(
+                          metadata[file.split(".")[0]])
                 self.files.append(sample)
-        self.targets = len(self.files[0]['scaled_properties']) + len(
-            self.files[0]['unscaled_properties'])
+
+        if not inference:        
+          self.targets = len(self.files[0]['scaled_properties']) + len(
+              self.files[0]['unscaled_properties'])
 
     def __len__(self):
         return len(self.files)
@@ -111,10 +116,16 @@ class PointCloudData(Dataset):
 
     def __getitem__(self, idx):
         pcd_path = self.files[idx]['pcd_path']
-        scaled_properties = self.files[idx]['scaled_properties']
-        unscaled_properties = torch.from_numpy(self.files[idx]['unscaled_properties']).float()
         id = self.files[idx]['id']
-        pointcloud, scaled_properties = self.__preproc__(pcd_path, scaled_properties)
-        return {'pointcloud': pointcloud, 
-                'properties': torch.cat((scaled_properties, unscaled_properties)),
-                'id': id}
+
+        if not self.inference:
+          scaled_properties = self.files[idx]['scaled_properties']
+          unscaled_properties = torch.from_numpy(self.files[idx]['unscaled_properties']).float()
+          pointcloud, scaled_properties = self.__preproc__(pcd_path, scaled_properties)
+          return {'pointcloud': pointcloud, 
+                  'properties': torch.cat((scaled_properties, unscaled_properties)),
+                  'id': id}
+        else:
+          pointcloud = self.__preproc__(pcd_path, None)
+          return {'pointcloud': pointcloud, 
+                  'id': id}

@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 from src.preparation import *
 from src.dataset import *
+from src.chamfer import get_chamfer_loss_tensor, get_chamfer_loss
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -61,7 +62,10 @@ def test(model, loader, device, criterion):
         points = points.transpose(2, 1)
         pred, _ = predictor(points)
         loss = criterion(pred, target)
-        losses.append(loss)
+        chamfer_scale = 0.01
+        chamfer_loss = get_chamfer_loss_tensor(pred, points) * chamfer_scale
+        #losses.append(loss + chamfer_loss)
+        losses.append(chamfer_loss)
 
     avg_loss = sum(losses)/len(losses)
     return avg_loss
