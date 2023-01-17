@@ -31,18 +31,17 @@ def save_registration_result(source, transformation, save_path):
 def icp(source, target, threshold, trans_init, save_path=None):
 
     #draw_registration_result(source, target, trans_init)
-    print("Initial alignment")
+    #print("Initial alignment")
     evaluation = o3d.pipelines.registration.evaluate_registration(
         source, target, threshold, trans_init)
-    print(evaluation)
+    #print(evaluation)
 
-    print("Apply point-to-point ICP")
+    #print("Apply point-to-point ICP")
     reg_p2p = o3d.pipelines.registration.registration_icp(
         source, target, threshold, trans_init,
         o3d.pipelines.registration.TransformationEstimationPointToPoint())
-    print(reg_p2p)
-    print("Transformation is:")
-    print(reg_p2p.transformation)
+    # print("Transformation is:")
+    # print(reg_p2p.transformation)
     
     if save_path is not None:
         save_registration_result(source, reg_p2p.transformation, save_path)
@@ -80,13 +79,11 @@ def transform_direction(params, t, start_index,):
 def transform_z_axis(t):
     z = [0., 0., 1., 0.]
     transformed_z = np.matmul(t, np.array(z))[:-1]
-    print("transformed z", transformed_z)
     return transformed_z
 
 
 def transform_params(params, t, cat):
     #t = np.transpose(t)
-    print(params)
     z= (0., 0., 1.)
     if cat == "tee":
         #pass
@@ -103,7 +100,7 @@ def transform_params(params, t, cat):
 
 
 def icp_finetuning(pcd, pcd_id, cat, preds, blueprint, temp_dir, target_dir, ifcConvert_executable,
-                   cloudCompare_executable, sample_size, threshold):
+                   cloudCompare_executable, sample_size, threshold, visualize = True):
     trans_init  = np.identity(4)
 
     # get ifc file
@@ -136,7 +133,6 @@ def icp_finetuning(pcd, pcd_id, cat, preds, blueprint, temp_dir, target_dir, ifc
     # transform parameters
     pred_copy = copy.deepcopy(preds)
     transformed_preds, z = transform_params(preds, transformation, cat)
-    viewer, ifc = visualize_predictions([pcd], cat, [transformed_preds], blueprint, visualize=True)
     #viewer, ifc = visualize_predictions([pcd, source.points], cat, [pred_copy], blueprint, visualize=True, z=z)
 
     # cleanup
@@ -144,6 +140,12 @@ def icp_finetuning(pcd, pcd_id, cat, preds, blueprint, temp_dir, target_dir, ifc
     os.remove(tmp_obj)
     os.remove(tmp_mtl)
     os.remove(tmp_pcd)
+
+    if visualize:
+        viewer, ifc = visualize_predictions([pcd], cat, [transformed_preds], blueprint, visualize=True)
+        return viewer, ifc
+    else:
+        return None, None
+
     
-    return viewer, ifc
     

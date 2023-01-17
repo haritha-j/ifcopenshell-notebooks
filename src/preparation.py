@@ -24,9 +24,7 @@ class Normalize(object):
         norm_pointcloud = pointcloud - np.mean(pointcloud, axis=0)
         norm_factor = np.max(np.linalg.norm(norm_pointcloud, axis=1))
         norm_pointcloud /= norm_factor
-
-        if properties is not None:
-            properties = properties/norm_factor
+        properties = properties/norm_factor
         return  (norm_pointcloud, properties)
   
 
@@ -67,10 +65,8 @@ class ToTensor(object):
         pointcloud, properties = data[0], data[1]
         assert len(pointcloud.shape)==2
         
-        if properties is not None:
-            return (torch.from_numpy(pointcloud).float(), torch.from_numpy(properties).float())
-        else:
-            return(torch.from_numpy(pointcloud).float(), properties)
+        return (torch.from_numpy(pointcloud).float(), torch.from_numpy(properties).float())
+
 
 
 def random_resample_cloud(points, density, uniform_sampling):

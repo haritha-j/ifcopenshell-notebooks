@@ -69,8 +69,8 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
             pm['p'] = [preds[5]*1000, preds[6]*1000, preds[7]*1000]
             pm['d'] = get_direction_from_trig(preds, 8)
 
-            print("all", pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
-                            pm['y'], pm['axis_dir'])
+            # print("all", pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
+            #                 pm['y'], pm['axis_dir'])
 
             create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
                             pm['y'], pm['axis_dir'], ifc, ifc_info, z=z)

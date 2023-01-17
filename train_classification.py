@@ -62,7 +62,7 @@ def test(model, loader, device, criterion):
         points = points.transpose(2, 1)
         pred, _ = predictor(points)
         loss = criterion(pred, target)
-        chamfer_scale = 0.01
+        chamfer_scale = 0.0001
         chamfer_loss = get_chamfer_loss_tensor(pred, points) * chamfer_scale
         #losses.append(loss + chamfer_loss)
         losses.append(chamfer_loss)

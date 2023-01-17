@@ -12,7 +12,6 @@ from src.geometry import vector_norm
 
 def get_chamfer_dist_single(src, tgt):
     src, tgt = torch.tensor([src]).cuda(), torch.tensor([tgt]).cuda()
-    print("inputs", src.shape, tgt.shape)
     chamferDist = ChamferDistance()
     bidirectional_dist = chamferDist(src, tgt, bidirectional=True)
     return (bidirectional_dist.detach().cpu().item())

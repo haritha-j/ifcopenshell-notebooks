@@ -126,6 +126,6 @@ class PointCloudData(Dataset):
                   'properties': torch.cat((scaled_properties, unscaled_properties)),
                   'id': id}
         else:
-          pointcloud = self.__preproc__(pcd_path, None)
+          pointcloud, scaled_properties = self.__preproc__(pcd_path, np.ones(10))
           return {'pointcloud': pointcloud, 
                   'id': id}
