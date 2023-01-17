@@ -11,7 +11,7 @@ from src.geometry import vector_norm
 
 
 def get_chamfer_dist_single(src, tgt):
-    src, tgt = torch.tensor([src]).cuda(), torch.tensor([tgt]).cuda()
+    src, tgt = torch.tensor([src]).cuda().float(), torch.tensor([tgt]).cuda().float()
     chamferDist = ChamferDistance()
     bidirectional_dist = chamferDist(src, tgt, bidirectional=True)
     return (bidirectional_dist.detach().cpu().item())
@@ -48,7 +48,7 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor):
 # generate points on surface of elbow
 def generate_elbow_cloud(preds):
     # read params
-    r, x, y = preds[0]/1000, preds[1]/1000, preds[2]/1000, 
+    r, x, y = preds[0], preds[1], preds[2], 
     d = get_direction_from_trig(preds, 8)
     a = math.atan2(preds[3], preds[4])
     p = [preds[5], preds[6], preds[7]]
@@ -126,7 +126,7 @@ def generate_elbow_cloud_tensor(preds_tensor):
     # t1 = time.perf_counter()
     # read params
     tensor_size = preds_tensor.shape[0]
-    r, x, y = preds_tensor[:,0]/1000, preds_tensor[:,1]/1000, preds_tensor[:,2]/1000
+    r, x, y = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2]
     d = get_direction_from_trig_tensor(preds_tensor, 8)
     a = torch.atan2(preds_tensor[:,3], preds_tensor[:,4])
     p = torch.transpose(torch.vstack((preds_tensor[:,5], 
@@ -202,7 +202,8 @@ def generate_elbow_cloud_tensor(preds_tensor):
         for j in range(no_of_ring_points):
 
             # generate random point on ring around axis point
-            angle_ring = torch.rand(tensor_size).cuda()*2*math.pi
+            #angle_ring = torch.rand(tensor_size).cuda()*2*math.pi
+            angle_ring = torch.tensor(j*2*math.pi/no_of_ring_points)
             ring_point = (axis_point + 
                           ((r * torch.cos(angle_ring)).unsqueeze(1) * ring_x) - 
                           ((r * torch.sin(angle_ring)).unsqueeze(1) * ring_y))
