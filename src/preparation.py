@@ -19,13 +19,18 @@ def read_pcd(file):
 
 class Normalize(object):
     def __call__(self, data):
-        pointcloud, properties = data[0], data[1]
+        pointcloud, scaled_properties, position_properties = data[0], data[1], data[2]
         assert len(pointcloud.shape)==2
-        norm_pointcloud = pointcloud - np.mean(pointcloud, axis=0)
+        
+        mean = np.mean(pointcloud, axis=0)
+        norm_pointcloud = pointcloud - mean
         norm_factor = np.max(np.linalg.norm(norm_pointcloud, axis=1))
         norm_pointcloud /= norm_factor
-        properties = properties/norm_factor
-        return  (norm_pointcloud, properties)
+        
+        scaled_properties = scaled_properties/norm_factor
+        position_properties = (position_properties - mean)/norm_factor
+        
+        return  (norm_pointcloud, scaled_properties, position_properties)
   
 
 # trsansform the centerpoint of a cloud to origin
@@ -37,7 +42,7 @@ def center_bbox(cloud):
 
 class RandRotation_z(object):
     def __call__(self, data):
-        pointcloud, properties = data[0], data[1]
+        pointcloud, scaled_properties, position_properties = data[0], data[1], data[2]
         assert len(pointcloud.shape)==2
 
         theta = random.random() * 2. * math.pi
@@ -46,26 +51,28 @@ class RandRotation_z(object):
                                [0,                             0,      1]])
         
         rot_pointcloud = rot_matrix.dot(pointcloud.T).T
-        return  (rot_pointcloud, properties)
+        return  (rot_pointcloud, scaled_properties, position_properties)
     
 
 class RandomNoise(object):
     def __call__(self, data):
-        pointcloud, properties = data[0], data[1]
+        pointcloud, scaled_properties, position_properties = data[0], data[1], data[2]
         assert len(pointcloud.shape)==2
 
         noise = np.random.normal(0, 0.02, (pointcloud.shape))
     
         noisy_pointcloud = pointcloud + noise
-        return  (noisy_pointcloud, properties)
+        return  (noisy_pointcloud, scaled_properties, position_properties)
 
 
 class ToTensor(object):
     def __call__(self, data):
-        pointcloud, properties = data[0], data[1]
+        pointcloud, scaled_properties, position_properties = data[0], data[1], data[2]
         assert len(pointcloud.shape)==2
         
-        return (torch.from_numpy(pointcloud).float(), torch.from_numpy(properties).float())
+        return (torch.from_numpy(pointcloud).float(), 
+                torch.from_numpy(scaled_properties).float(), 
+                torch.from_numpy(position_properties).float())
 
 
 

@@ -51,8 +51,9 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
     for preds in preds_list:
         if element == 'pipe':
             pm = {'r':preds[0], 'l':preds[1] }
-            pm['d'] = get_direction_from_trig(preds, 2)
-            pm['p'] = [-((pm['l']*pm['d'][i])/2) for i in range(3)]
+            pm['d'] = get_direction_from_trig(preds, 5)
+            pm['p0'] = [preds[2]*1000, preds[3]*1000, preds[4]*1000]
+            pm['p'] = [pm['p0'][i] - ((pm['l']*pm['d'][i])/2) for i in range(3)]
             #print(pm)
             
             create_IfcPipe(pm['r'], pm['l'], pm['d'], pm['p'], ifc, ifc_info)
@@ -63,10 +64,10 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
             theta = math.atan2(pm['x'], pm['y'])
             pm['axis_dir'] = [math.cos(theta), -1*math.sin(theta)]
             # pm['p'] = [0.0, 0.0, 0.0]
-            pm['a'] = math.degrees(math.atan2(preds[3], preds[4]))
+            pm['a'] = math.degrees(math.atan2(preds[6], preds[7]))
             
 
-            pm['p'] = [preds[5]*1000, preds[6]*1000, preds[7]*1000]
+            pm['p'] = [preds[3]*1000, preds[4]*1000, preds[5]*1000]
             pm['d'] = get_direction_from_trig(preds, 8)
 
             # print("all", pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],

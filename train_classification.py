@@ -52,7 +52,7 @@ def inplace_relu(m):
         m.inplace=True
 
 
-def test(model, loader, device, criterion):
+def test(model, loader, device, criterion, cat):
     losses = []
     predictor = model.eval()
 
@@ -62,13 +62,15 @@ def test(model, loader, device, criterion):
         points = points.transpose(2, 1)
         pred, _ = predictor(points)
         loss = criterion(pred, target)
-        chamfer_scale = 0.0001
-        chamfer_loss = get_chamfer_loss_tensor(pred, points) * chamfer_scale
-        #losses.append(loss + chamfer_loss)
-        losses.append(chamfer_loss)
+        chamfer_scale = 0.0005
+        chamfer_loss = get_chamfer_loss_tensor(pred, points, cat) * chamfer_scale
+        losses.append(loss + chamfer_loss)
+        # losses.append(chamfer_loss)
+        #losses.append(loss)
 
     avg_loss = sum(losses)/len(losses)
     return avg_loss
+
 
 def _make_dir(exp_dir):
     try:
@@ -94,7 +96,7 @@ def main(args):
                     ToTensor()
                     ])
 
-    cat= 'elbow'
+    cat = 'pipe'
     train_ds = PointCloudData(path, category=cat, transform=train_transforms)
     valid_ds = PointCloudData(path, valid=True, folder='test', category=cat, transform=train_transforms)
     targets = train_ds.targets
@@ -185,7 +187,7 @@ def main(args):
             points = points.transpose(2, 1)
 
             pred, trans_feat = predictor(points)
-            loss = criterion(pred, target, trans_feat, points)
+            loss = criterion(pred, target, trans_feat, points, cat)
 
             loss.backward()
             optimizer.step()
@@ -194,7 +196,7 @@ def main(args):
         log_string('Train loss: %f' % loss)
 
         with torch.no_grad():
-            loss = test(predictor.eval(), testDataLoader, device, test_criterion)
+            loss = test(predictor.eval(), testDataLoader, device, test_criterion, cat)
 
             if (loss <= best_loss):
                 best_loss = loss
