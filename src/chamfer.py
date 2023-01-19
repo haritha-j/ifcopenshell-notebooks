@@ -215,3 +215,6 @@ def generate_elbow_cloud_tensor(preds_tensor):
     # print("cloud", t2-t1, "chamf", t3-t2)
 
     return(ring_points)
+
+
+
