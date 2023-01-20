@@ -96,7 +96,7 @@ def main(args):
                     ToTensor()
                     ])
 
-    cat = 'elbow'
+    cat = 'tee'
     train_ds = PointCloudData(path, category=cat, transform=train_transforms)
     valid_ds = PointCloudData(path, valid=True, folder='test', category=cat, transform=train_transforms)
     targets = train_ds.targets

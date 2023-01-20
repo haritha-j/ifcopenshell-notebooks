@@ -9,7 +9,7 @@ import open3d as o3d
 
 from src.ifc import setup_ifc_file
 from src.elements import *
-from pointnet2.data_utils.ModelNetDataLoader import farthest_point_sample
+from src.cloud import farthest_point_sample
 
 
 def read_pcd(file):

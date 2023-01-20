@@ -8,7 +8,7 @@ from utils.JupyterIFCRenderer import JupyterIFCRenderer
 import plotly.graph_objects as go
 import plotly.express as px
 
-from src.geometry import vector_norm
+from src.geometry import vector_normalise
 from src.elements import *
 
 
@@ -32,7 +32,7 @@ def get_direction_from_trig(preds, k):
 # reover axis direction from 2 position values starting from index k, j
 def get_direction_from_position(preds, k, j):
     dir = [(preds[k] - preds[j]), (preds[k+1] - preds[j+1]), (preds[k+2] - preds[j+2])]
-    return vector_norm(dir)
+    return vector_normalise(dir)
 
 
 # visualize predictions side by side with ifc

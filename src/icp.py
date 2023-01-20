@@ -6,7 +6,7 @@ import subprocess
 import open3d as o3d
 
 from src.visualisation import *
-from src.geometry import  vector_norm
+from src.geometry import  vector_normalise
 
 
 def run_command(cmds):
@@ -68,7 +68,7 @@ def transform_direction(params, t, start_index,):
     origin = [0.,0.,0.,1.]
     transformed_origin = np.matmul(t, np.array(origin))[:-1]
     new_d = transformed_d - transformed_origin
-    new_d = vector_norm(new_d)
+    new_d = vector_normalise(new_d)
     
     for i, axis in enumerate(new_d):
         params[start_index + i*2] = math.sin(axis)

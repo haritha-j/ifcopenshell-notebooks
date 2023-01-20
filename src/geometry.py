@@ -17,7 +17,11 @@ def sq_distance(x1, y1, z1, x2, y2, z2):
     return ((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
 
 
-def vector_norm(vec):
+def vector_mag(vec):
+    return math.sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
+
+
+def vector_normalise(vec):
     den = math.sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
     return [vec[0]/den, vec[1]/den, vec[2]/den]
 
@@ -79,13 +83,13 @@ def get_oriented_bbox(element):
     
     dominant_axis = half_lengths.index(max(half_lengths))
     if dominant_axis == 0:
-        dominant_direction = vector_norm([bbox[0][i] - bbox[1][i] 
+        dominant_direction = vector_normalise([bbox[0][i] - bbox[1][i] 
                                           for i in range(3)])
     elif dominant_axis == 1:
-        dominant_direction = vector_norm([bbox[0][i] - bbox[3][i] 
+        dominant_direction = vector_normalise([bbox[0][i] - bbox[3][i] 
                                           for i in range(3)])
     else:
-        dominant_direction = vector_norm([bbox[0][i] - bbox[4][i] 
+        dominant_direction = vector_normalise([bbox[0][i] - bbox[4][i] 
                                           for i in range(3)])
 
     dominance_ratio = max(half_lengths)/sorted(half_lengths)[-2]
@@ -115,13 +119,13 @@ def get_dimensions_points (element_coords):
     
     dominant_axis = lengths.index(max(lengths))
     if dominant_axis == 0:
-        dominant_direction = vector_norm([bbox[0][i] - bbox[1][i] 
+        dominant_direction = vector_normalise([bbox[0][i] - bbox[1][i] 
                                           for i in range(3)])
     elif dominant_axis == 1:
-        dominant_direction = vector_norm([bbox[0][i] - bbox[3][i] 
+        dominant_direction = vector_normalise([bbox[0][i] - bbox[3][i] 
                                           for i in range(3)])
     else:
-        dominant_direction = vector_norm([bbox[0][i] - bbox[4][i] 
+        dominant_direction = vector_normalise([bbox[0][i] - bbox[4][i] 
                                           for i in range(3)])
         
     return(center, lengths, dominant_direction)

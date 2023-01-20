@@ -20,5 +20,3 @@ CLOI dataset preperation is contained in *CLOI.ipynb*.
 Additionally, scripts for exctracting facility structure from NWD files (*total.py*), downsampling element point clouds (*downsample.py*), merging IFC elements (*ifcmerge.py*) and cleaning up IFC files extracted from NWD files (*IFCPARSE.py*) are available in the *utils* folder.
 
 Source code for processing ifc geometry, graphs, point clouds, industrial facility structure and visualisation are available in the *src* folder.
-
-Loosely based on [IFC shell notebooks by Jakob Beetz](https://github.com/jakob-beetz/ifcopenshell-notebooks)

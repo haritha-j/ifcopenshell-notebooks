@@ -7,7 +7,7 @@ from chamferdist import ChamferDistance
 import torch.nn.functional as F
 
 from src.visualisation import get_direction_from_trig
-from src.geometry import vector_norm
+from src.geometry import vector_normalise, vector_mag
 
 
 # generate points on surface of elbow
@@ -20,8 +20,8 @@ def generate_elbow_cloud(preds):
     
     # get new coordinate frame of elbow
     old_z = (0., 0., 1.)
-    x_axis = vector_norm(np.cross(d, old_z))
-    y_axis = vector_norm(np.cross(d, x_axis))
+    x_axis = vector_normalise(np.cross(d, old_z))
+    y_axis = vector_normalise(np.cross(d, x_axis))
     
     # compute transformation
     rot_mat = np.transpose(np.array([x_axis, y_axis, d]))
@@ -35,7 +35,7 @@ def generate_elbow_cloud(preds):
     original_axis_dir = [math.cos(theta), -1*math.sin(theta), 0., 0.]
     transformed_axis_dir = np.matmul(trans_mat, np.array(original_axis_dir))[:-1]
     #print(transformed_axis_dir)
-    b_axis = np.array(vector_norm(np.cross(transformed_axis_dir, d)))
+    b_axis = np.array(vector_normalise(np.cross(transformed_axis_dir, d)))
     #print("b", b_axis)
     
     # compute parameters
@@ -58,9 +58,9 @@ def generate_elbow_cloud(preds):
      
         # find axes of ring plane
         if (i == 0):
-            ring_x_init = vector_norm(axis_point - transformed_center)
-            ring_y = vector_norm(np.cross(d, ring_x_init))
-        ring_x = vector_norm(axis_point - transformed_center)
+            ring_x_init = vector_normalise(axis_point - transformed_center)
+            ring_y = vector_normalise(np.cross(d, ring_x_init))
+        ring_x = vector_normalise(axis_point - transformed_center)
                 
         # iterate through points in each ring
         for j in range(no_of_ring_points):
@@ -76,23 +76,8 @@ def generate_elbow_cloud(preds):
 
     return ring_points
 
-
-# generate points on surface of elbow
-def generate_pipe_cloud(preds):
-    # read params
-    r, l = preds[0], preds[1]
-    d = get_direction_from_trig(preds, 5)
-    p0 = [preds[2], preds[3], preds[4]]
-    p = [p0[i] - ((l*d[i])/2) for i in range(3)]
-    
-    # get new coordinate frame of elbow
-    old_z = (0., 0., 1.)
-    x_axis = vector_norm(np.cross(d, old_z))
-    y_axis = vector_norm(np.cross(d, x_axis))
-    
-    # sample points in rings along axis
-    no_of_axis_points = 50    
-    no_of_ring_points = 40
+# sample points in rings along axis of a cylinder
+def get_cylinder_points(no_of_axis_points, no_of_ring_points, r, l, p, d, x_axis, y_axis):
     ring_points = []
 
     # iterate through rings
@@ -113,6 +98,92 @@ def generate_pipe_cloud(preds):
             ring_points.append(ring_point)
 
     return ring_points
+
+
+# generate points on surface of pipe
+def generate_pipe_cloud(preds):
+    # read params
+    r, l = preds[0], preds[1]
+    d = get_direction_from_trig(preds, 5)
+    p0 = [preds[2], preds[3], preds[4]]
+    p = [p0[i] - ((l*d[i])/2) for i in range(3)]
+    
+    # get new coordinate frame of pipe
+    old_z = (0., 0., 1.)
+    x_axis = vector_normalise(np.cross(d, old_z))
+    y_axis = vector_normalise(np.cross(d, x_axis))
+    
+    # sample points in rings along axis
+    no_of_axis_points = 50    
+    no_of_ring_points = 40
+    ring_points = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
+                                      r, l, p, d, x_axis, y_axis)
+
+    return ring_points
+
+
+# generate points on surface of tee
+def generate_tee_cloud(preds):
+    # read params
+    r1, l1, r2, l2 = preds[0], preds[1], preds[2], preds[3]
+    d1 = get_direction_from_trig(preds, 7)
+    d2 = get_direction_from_trig(preds, 13)
+    p2 = [preds[4], preds[5], preds[6]]
+    p1 = [p2[i] - ((l1*d1[i])/2) for i in range(3)]
+    
+    # get new coordinate frame of tee
+    old_z = (0., 0., 1.)
+    x_axis = vector_normalise(np.cross(d1, old_z))
+    y_axis = vector_normalise(np.cross(d1, x_axis))
+    
+    # sample points on main tube
+    no_of_axis_points = 50    
+    no_of_ring_points = 40
+    tube1_points = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
+                                      r1, l1, p1, d1, x_axis, y_axis)
+
+    # sample points on secondary tube
+    x_axis = vector_normalise(np.cross(d2, old_z))
+    y_axis = vector_normalise(np.cross(d2, x_axis))   
+    tube2_points = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
+                                      r2, l2, p2, d2, x_axis, y_axis)
+    
+    # remove points from secondary tube in main tube
+    tube2_points = np.array(tube2_points)
+    p1, p2 = np.array(p1), np.array(p2)
+    p2p1 = p2-p1
+    p2p1_mag = vector_mag(p2p1)
+    tube2_points_ref = []
+    
+    for q in tube2_points:
+        dist = vector_mag(np.cross((q-p1), (p2p1))) / p2p1_mag
+        #print(dist)
+        if dist > r1:
+            tube2_points_ref.append(q.tolist())
+            
+    # remove points from main tube in secondary tube
+    tube1_points = np.array(tube1_points)
+    p3 = np.array(p2 + d2)
+    p2p3 = p2-p3
+    p2p3_mag = vector_mag(p2p3)
+    tube1_points_ref = []
+    
+    for q in tube1_points:
+        dist = vector_mag(np.cross((q-p3), (p2p3))) / p2p3_mag
+        cos_theta = np.dot(q-p2, p2p3)
+        if dist > r2 or cos_theta > 0:
+            tube1_points_ref.append(q.tolist())
+    
+    # make sure not all points are deleted if predictions are very wrong
+    thresh = 50
+    if len(tube1_points_ref) < thresh and len(tube2_points_ref) < thresh:
+        return (tube1_points + tube2_points)
+    elif len(tube2_points_ref) < thresh:
+        return (tube1_points_ref + tube2_points)
+    elif len(tube1_points_ref) < thresh:
+        return (tube1_points + tube2_points_ref)
+    else:
+        return (tube1_points_ref + tube2_points_ref)
 
 
 # recover axis direction from six trig values starting from index k
@@ -219,30 +290,10 @@ def generate_elbow_cloud_tensor(preds_tensor):
     return(ring_points)
 
 
-# generate points on surface of cylinder
-def generate_pipe_cloud_tensor(preds_tensor):
-    # read params
-    tensor_size = preds_tensor.shape[0]
-    r, l = preds_tensor[:,0], preds_tensor[:,1]
-    d = get_direction_from_trig_tensor(preds_tensor, 5)
-    p0 = torch.transpose(torch.vstack((preds_tensor[:,2], 
-                                      preds_tensor[:,3], 
-                                      preds_tensor[:,4])), 
-                        0, 1)
-    p = p0 - (d * l[:, None]/2)
-
-    # get new coordinate frame of pipe
-    old_z = torch.tensor((0., 0., 1.))
-    old_z = old_z.repeat(tensor_size, 1).cuda()
-    x_axis = F.normalize(torch.cross(d, old_z))
-    y_axis = F.normalize(torch.cross(d, x_axis))
-
-    # sample points in rings along axis
-    # TODO: dynamically balance ring and axis points
-    no_of_axis_points = 50
-    no_of_ring_points = 40
-    ring_points = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points, 3)).cuda()
+# sample points in rings along axis of a cylinder
+def get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r, l, p, d, x_axis, y_axis, tensor_size):
     count = 0
+    ring_points = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points, 3)).cuda()
 
     # iterate through rings
     for i in range(no_of_axis_points):
@@ -267,11 +318,133 @@ def generate_pipe_cloud_tensor(preds_tensor):
     return(ring_points)
 
 
+# generate points on surface of cylinder
+def generate_pipe_cloud_tensor(preds_tensor):
+    # read params
+    tensor_size = preds_tensor.shape[0]
+    r, l = preds_tensor[:,0], preds_tensor[:,1]
+    d = get_direction_from_trig_tensor(preds_tensor, 5)
+    p0 = torch.transpose(torch.vstack((preds_tensor[:,2], 
+                                      preds_tensor[:,3], 
+                                      preds_tensor[:,4])), 
+                        0, 1)
+    p = p0 - (d * l[:, None]/2)
+
+    # get new coordinate frame of pipe
+    old_z = torch.tensor((0., 0., 1.))
+    old_z = old_z.repeat(tensor_size, 1).cuda()
+    x_axis = F.normalize(torch.cross(d, old_z))
+    y_axis = F.normalize(torch.cross(d, x_axis))
+
+    # sample points in rings along axis
+    # TODO: dynamically balance ring and axis points
+    no_of_axis_points = 50
+    no_of_ring_points = 40
+    ring_points = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r,
+                                             l, p, d, x_axis, y_axis, tensor_size)
+
+    return(ring_points)
+
+
+# generate points on surface of tee
+def generate_tee_cloud_tensor(preds_tensor):
+    # read params
+    tensor_size = preds_tensor.shape[0]
+    r1, l1, r2, l2 = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2], preds_tensor[:,3]
+    d1 = get_direction_from_trig_tensor(preds_tensor, 7)
+    d2 = get_direction_from_trig_tensor(preds_tensor, 13)
+    p2 = torch.transpose(torch.vstack((preds_tensor[:,4], 
+                                      preds_tensor[:,5], 
+                                      preds_tensor[:,6])), 
+                        0, 1)
+    p1 = p2 - (d1 * l1[:, None]/2)
+
+    # get new coordinate frame of pipe
+    old_z = torch.tensor((0., 0., 1.))
+    old_z = old_z.repeat(tensor_size, 1).cuda()
+    x_axis = F.normalize(torch.cross(d1, old_z))
+    y_axis = F.normalize(torch.cross(d1, x_axis))
+
+    # sample points in rings along main tube
+    no_of_axis_points = 50
+    no_of_ring_points = 40
+    tube1_points = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r1, 
+                                             l1, p1, d1, x_axis, y_axis, tensor_size)
+    
+    # sample points on secondary tube
+    x_axis = F.normalize(torch.cross(d2, old_z))
+    y_axis = F.normalize(torch.cross(d2, x_axis))   
+    tube2_points = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r2,
+                                              l2, p2, d2, x_axis, y_axis, tensor_size)
+    
+    # remove points from secondary tube in main tube
+    thresh = 50
+    p2p1 = p2-p1
+    p2p1_mag = torch.linalg.vector_norm(p2p1, dim=1)
+    tube2_error = False
+    no_points = tube2_points.shape[1]
+    tube2_points_ref = torch.zeros(tube2_points.shape).cuda()
+    tube2_points_mask = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points), 
+                                    dtype=torch.bool).cuda()
+    
+    for i in range(tube2_points.shape[1]):
+        cr = torch.cross(tube2_points[:,i]-p1, p2p1)
+        dist = torch.linalg.vector_norm(cr, dim=1) / p2p1_mag
+        tube2_points_mask[:, i] = torch.le(r1, dist)
+
+    for i in range(len(tube2_points)):
+        cl = tube2_points[i][tube2_points_mask[i]]
+        if (len(cl) < thresh):
+            tube2_error = True
+            break
+        tensor_repeat = cl[0]
+        pad = tensor_repeat.unsqueeze(0).repeat(no_points-cl.shape[0], 1)
+        cl = torch.cat((cl, pad), 0)
+        tube2_points_ref[i] = cl
+    
+    # remove points from main tube in secondary tube
+    p3 = p2+d2
+    p2p3 = p2-p3
+    p2p3_mag = torch.linalg.vector_norm(p2p3, dim=1)
+    tube1_error = False
+    no_points = tube1_points.shape[1]
+    tube1_points_ref = torch.zeros(tube1_points.shape).cuda()
+    tube1_points_mask = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points), 
+                                    dtype=torch.bool).cuda()
+   
+    for i in range(tube1_points.shape[1]):
+        cr = torch.cross(tube1_points[:,i]-p3, p2p3)
+        dist = torch.linalg.vector_norm(cr, dim=1) / p2p3_mag
+        cos_theta = torch.sum((tube1_points[:,i]-p2) * p2p3, dim =-1)
+        tube1_points_mask[:, i] = torch.logical_or(torch.le(r2, dist), torch.ge(cos_theta, 0))
+
+    for i in range(len(tube1_points)):
+        cl = tube1_points[i][tube1_points_mask[i]]
+        if (len(cl) < thresh):
+            tube1_error = True
+            break
+        tensor_repeat = cl[0]
+        pad = tensor_repeat.unsqueeze(0).repeat(no_points-cl.shape[0], 1)
+        cl = torch.cat((cl, pad), 0)
+        tube1_points_ref[i] = cl       
+        
+    if tube1_error and tube2_error:            
+        return torch.cat((tube1_points, tube2_points), 1)
+    elif tube1_error:
+        return torch.cat((tube1_points, tube2_points_ref), 1)
+    elif tube2_error:
+         return torch.cat((tube1_points_ref, tube2_points), 1)
+    else:
+        return torch.cat((tube1_points_ref, tube2_points_ref), 1)    
+
+
 def get_chamfer_dist_single(src, preds, cat):
     if cat == "elbow":
         tgt = generate_elbow_cloud(preds)
     elif cat == "pipe":
         tgt = generate_pipe_cloud(preds)
+    elif cat == "tee":
+        tgt = generate_tee_cloud(preds)
     src, tgt = torch.tensor([src]).cuda().float(), torch.tensor([tgt]).cuda().float()
     
     chamferDist = ChamferDistance()
@@ -289,6 +462,8 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
             target_pcd_list.append(generate_elbow_cloud(preds))
         elif cat == "pipe":
             target_pcd_list.append(generate_pipe_cloud(preds))
+        elif cat == "tee":
+            target_pcd_list.append(generate_tee_cloud(preds))
 
     target_pcd_tensor = torch.tensor(target_pcd_list).float().cuda()
     #t2 = time.perf_counter()
@@ -307,6 +482,8 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat):
         target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
     elif cat == "pipe":
         target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor)
     #t2 = time.perf_counter()
     chamferDist = ChamferDistance()
     bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True)
