@@ -445,7 +445,7 @@ def get_chamfer_dist_single(src, preds, cat):
         tgt = generate_pipe_cloud(preds)
     elif cat == "tee":
         tgt = generate_tee_cloud(preds)
-    src, tgt = torch.tensor([src]).cuda().float(), torch.tensor([tgt]).cuda().float()
+    src, tgt = torch.tensor(np.expand_dims(src, axis=0)).cuda().float(), torch.tensor(np.expand_dims(tgt, axis=0)).cuda().float()
     
     chamferDist = ChamferDistance()
     bidirectional_dist = chamferDist(src, tgt, bidirectional=True)
