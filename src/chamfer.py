@@ -177,11 +177,11 @@ def generate_tee_cloud(preds):
     # make sure not all points are deleted if predictions are very wrong
     thresh = 50
     if len(tube1_points_ref) < thresh and len(tube2_points_ref) < thresh:
-        return (tube1_points + tube2_points)
+        return (tube1_points.tolist() + tube2_points.tolist())
     elif len(tube2_points_ref) < thresh:
-        return (tube1_points_ref + tube2_points)
+        return (tube1_points_ref + tube2_points.tolist())
     elif len(tube1_points_ref) < thresh:
-        return (tube1_points + tube2_points_ref)
+        return (tube1_points.tolist() + tube2_points_ref)
     else:
         return (tube1_points_ref + tube2_points_ref)
 
