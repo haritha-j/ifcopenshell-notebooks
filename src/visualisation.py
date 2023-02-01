@@ -92,7 +92,7 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
             create_IfcTee(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d1'], 
                         pm['d2'], pm['p1'], pm['p2'], ifc, ifc_info)
 
-    ifc.write("temp.ifc")
+    #ifc.write("temp.ifc")
     if visualize:
         return vis_ifc_and_cloud(ifc, clouds), ifc
     else:

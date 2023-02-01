@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 from src.preparation import *
 from src.dataset import *
-from src.chamfer import get_chamfer_loss_tensor, get_chamfer_loss
+from src.chamfer import get_chamfer_loss_tensor, get_chamfer_loss, get_chamfer_loss_from_param_tensor
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -63,9 +63,10 @@ def test(model, loader, device, criterion, cat):
         pred, _ = predictor(points)
         loss = criterion(pred, target)
         chamfer_scale = 0.0005
-        chamfer_loss = get_chamfer_loss_tensor(pred, points, cat) * chamfer_scale
-        losses.append(loss + chamfer_loss)
-        # losses.append(chamfer_loss)
+        #chamfer_loss = get_chamfer_loss_tensor(pred, points, cat) * chamfer_scale
+        chamfer_loss = get_chamfer_loss_from_param_tensor(pred, target, cat) * chamfer_scale
+        #losses.append(loss + chamfer_loss)
+        losses.append(chamfer_loss)
         #losses.append(loss)
 
     avg_loss = sum(losses)/len(losses)
@@ -96,7 +97,7 @@ def main(args):
                     ToTensor()
                     ])
 
-    cat = 'pipe'
+    cat = 'elbow'
     train_ds = PointCloudData(path, category=cat, transform=train_transforms)
     valid_ds = PointCloudData(path, valid=True, folder='test', category=cat, transform=train_transforms)
     targets = train_ds.targets

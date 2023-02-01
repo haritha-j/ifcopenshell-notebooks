@@ -492,3 +492,22 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat):
     return bidirectional_dist
 
 
+def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):
+    
+    if cat == "elbow":
+        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
+        src_pcd_tensor = generate_elbow_cloud_tensor(src_tensor)
+    elif cat == "pipe":
+        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+        src_pcd_tensor = generate_pipe_cloud_tensor(src_tensor)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor)
+        src_pcd_tensor = generate_tee_cloud_tensor(src_tensor)
+    #t2 = time.perf_counter()
+    chamferDist = ChamferDistance()
+    bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True)
+    #t3 = time.perf_counter()
+    #print("cloud", t2-t1, "chamf", t3-t2)
+    return bidirectional_dist
+
+
