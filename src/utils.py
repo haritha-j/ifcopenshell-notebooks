@@ -3,28 +3,10 @@ import os
 import torch
 import pickle
 import open3d as o3d
-import matplotlib.pyplot as plt
 
 from src.chamfer import *
 from src.visualisation import *
 
-
-def plot_error_graph(data):
-    # filter top 99% to remove outliers
-    sorted_data = np.sort(data)[::-1]
-    cap = int(len(data)/100)
-    filtered_data = sorted_data[cap:]
-    print("avg", np.average(filtered_data), cap, filtered_data[0], filtered_data[-1])
-    norm = np.linalg.norm(filtered_data, ord=1)
-    norm_data = filtered_data/norm
-    #print(norm_data)
-    
-    # draw graph
-    fig = plt.figure(figsize=(12,4))
-    n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,filtered_data[0],1))
-    mid = 0.5*(bins[1:] + bins[:-1])
-    plt.errorbar(mid, n, yerr=0.01, fmt='none')
-    
 
 def scale_preds(preds, cat, up=1, norm_factor = 1):
     if up == 1:

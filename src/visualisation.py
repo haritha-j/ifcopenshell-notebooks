@@ -66,7 +66,6 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
             # pm['p'] = [0.0, 0.0, 0.0]
             pm['a'] = math.degrees(math.atan2(preds[6], preds[7]))
             
-
             pm['p'] = [preds[3]*1000, preds[4]*1000, preds[5]*1000]
             pm['d'] = get_direction_from_trig(preds, 8)
 
