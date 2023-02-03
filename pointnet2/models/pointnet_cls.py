@@ -3,6 +3,8 @@ import torch.utils.data
 import torch.nn.functional as F
 from pointnet_utils import PointNetEncoder, feature_transform_reguliarzer
 
+from src.chamfer import get_chamfer_loss_tensor, get_chamfer_loss, get_chamfer_loss_from_param_tensor
+
 class get_model(nn.Module):
     def __init__(self, k=40, normal_channel=True):
         super(get_model, self).__init__()
@@ -24,7 +26,7 @@ class get_model(nn.Module):
         x = F.relu(self.bn1(self.fc1(x)))
         x = F.relu(self.bn2(self.dropout(self.fc2(x))))
         x = self.fc3(x)
-        x = F.log_softmax(x, dim=1)
+        #x = F.log_softmax(x, dim=1)
         return x, trans_feat
 
 class get_loss(torch.nn.Module):
@@ -32,9 +34,11 @@ class get_loss(torch.nn.Module):
         super(get_loss, self).__init__()
         self.mat_diff_loss_scale = mat_diff_loss_scale
 
-    def forward(self, pred, target, trans_feat):
-        loss = F.nll_loss(pred, target)
+    def forward(self, pred, target, trans_feat, points, cat):
+        loss = nn.MSELoss()
+        total_loss = loss(pred, target)
         mat_diff_loss = feature_transform_reguliarzer(trans_feat)
-
-        total_loss = loss + mat_diff_loss * self.mat_diff_loss_scale
+        chamfer_scale = 0.0005
+        chamfer_loss = get_chamfer_loss_from_param_tensor(pred, target, cat) * chamfer_scale
+        total_loss = total_loss + mat_diff_loss * self.mat_diff_loss_scale + chamfer_loss
         return total_loss

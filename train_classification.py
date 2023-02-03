@@ -65,8 +65,8 @@ def test(model, loader, device, criterion, cat):
         chamfer_scale = 0.0005
         #chamfer_loss = get_chamfer_loss_tensor(pred, points, cat) * chamfer_scale
         chamfer_loss = get_chamfer_loss_from_param_tensor(pred, target, cat) * chamfer_scale
-        #losses.append(loss + chamfer_loss)
-        losses.append(chamfer_loss)
+        losses.append(loss + chamfer_loss)
+        #losses.append(chamfer_loss)
         #losses.append(loss)
 
     avg_loss = sum(losses)/len(losses)

@@ -53,6 +53,6 @@ class get_loss(nn.Module):
 
         #print("tot", total_loss, "chm", chamfer_loss)
 
-        #return total_loss + chamfer_loss
+        return total_loss + chamfer_loss
         #return total_loss
-        return chamfer_loss
+        #return chamfer_loss
