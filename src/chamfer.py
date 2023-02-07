@@ -196,7 +196,7 @@ def get_direction_from_trig_tensor(preds_tensor, k):
 
 # generate points on surface of elbow
 def generate_elbow_cloud_tensor(preds_tensor):
-    # t1 = time.perf_counter()
+    t1 = time.perf_counter()
     # read params
     tensor_size = preds_tensor.shape[0]
     r, x, y = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2]
@@ -251,10 +251,12 @@ def generate_elbow_cloud_tensor(preds_tensor):
     # sample points in rings along axis
     no_of_axis_points = 100
     no_of_ring_points = 20
-    ring_points = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points, 3)).cuda()
+    #ring_points = torch.zeros(1,1,1).cuda().expand(tensor_size, no_of_axis_points*no_of_ring_points, 3)
+    #ring_points = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points, 3)).cuda()
+    ring_points_list = []
     count = 0
 
-    # t2 = time.perf_counter()
+    t2 = time.perf_counter()
 
     # iterate through rings
     for i in range(no_of_axis_points):
@@ -272,6 +274,20 @@ def generate_elbow_cloud_tensor(preds_tensor):
         ring_x = F.normalize(axis_point - transformed_center)
                 
         # iterate through points in each ring
+        # j = torch.arange(0, no_of_ring_points).cuda()
+        # j = j.unsqueeze(0).repeat(tensor_size, 1)
+        # print("j shape", j.shape)
+
+        # angle_ring = torch.mul(j,2*math.pi/no_of_ring_points)
+        # print("ang ring shape", angle_ring.shape)
+
+        # ring_point = (axis_point + 
+        #                   (torch.mul(r, torch.cos(angle_ring)).unsqueeze(1) * ring_x) - 
+        #                   (torch.mul(r, torch.sin(angle_ring)).unsqueeze(1) * ring_y))
+        # print("ring_point shape", ring_point.shape)
+
+        # ring_points[:,count:count+no_of_ring_points] = ring_point
+        # count += 20
         for j in range(no_of_ring_points):
 
             # generate random point on ring around axis point
@@ -280,12 +296,16 @@ def generate_elbow_cloud_tensor(preds_tensor):
             ring_point = (axis_point + 
                           ((r * torch.cos(angle_ring)).unsqueeze(1) * ring_x) - 
                           ((r * torch.sin(angle_ring)).unsqueeze(1) * ring_y))
-            ring_points[:, count] = ring_point
-
+            #ring_points[:, count] = ring_point
+            rp = torch.unsqueeze(ring_point, 1)
+            print(rp.shape)
+            ring_points_list.append(rp)
             count += 1
+    ring_points = torch.hstack(ring_points_list)
+    print(ring_points.shape)
 
-    # t3 = time.perf_counter()
-    # print("cloud", t2-t1, "chamf", t3-t2)
+    t3 = time.perf_counter()
+    print("cloud", t2-t1, "chamf", t3-t2)
 
     return(ring_points)
 
@@ -475,7 +495,7 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
     return bidirectional_dist
 
 
-def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat):
+def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     
     if cat == "elbow":
@@ -486,7 +506,10 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat):
         target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor)
     #t2 = time.perf_counter()
     chamferDist = ChamferDistance()
-    bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True)
+    if reduce:
+        bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True)
+    else:
+        bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, reduction=None)
     #t3 = time.perf_counter()
     #print("cloud", t2-t1, "chamf", t3-t2)
     return bidirectional_dist
