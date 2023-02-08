@@ -17,8 +17,9 @@ def vis_ifc_and_cloud(ifc, clouds):
     viewer = JupyterIFCRenderer(ifc, size=(400, 300))
     colours = ['#ff7070', '#70ff70', '#7070ff']
     for i, cloud in enumerate(clouds):
-        gp_pnt_list = [gp_Pnt(k[0], k[1], k[2]) for k in cloud]
-        viewer.DisplayShape(gp_pnt_list, vertex_color=colours[i])
+        if cloud is not None:
+            gp_pnt_list = [gp_Pnt(k[0], k[1], k[2]) for k in cloud]
+            viewer.DisplayShape(gp_pnt_list, vertex_color=colours[i])
     return viewer
 
 
