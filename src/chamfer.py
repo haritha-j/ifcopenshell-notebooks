@@ -196,7 +196,7 @@ def get_direction_from_trig_tensor(preds_tensor, k):
 
 # generate points on surface of elbow
 def generate_elbow_cloud_tensor(preds_tensor):
-    t1 = time.perf_counter()
+    #t1 = time.perf_counter()
     # read params
     tensor_size = preds_tensor.shape[0]
     r, x, y = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2]
@@ -256,7 +256,7 @@ def generate_elbow_cloud_tensor(preds_tensor):
     ring_points_list = []
     count = 0
 
-    t2 = time.perf_counter()
+    #t2 = time.perf_counter()
 
     # iterate through rings
     for i in range(no_of_axis_points):
@@ -298,14 +298,12 @@ def generate_elbow_cloud_tensor(preds_tensor):
                           ((r * torch.sin(angle_ring)).unsqueeze(1) * ring_y))
             #ring_points[:, count] = ring_point
             rp = torch.unsqueeze(ring_point, 1)
-            print(rp.shape)
             ring_points_list.append(rp)
             count += 1
     ring_points = torch.hstack(ring_points_list)
-    print(ring_points.shape)
 
-    t3 = time.perf_counter()
-    print("cloud", t2-t1, "chamf", t3-t2)
+    #t3 = time.perf_counter()
+    #print("cloud", t2-t1, "chamf", t3-t2)
 
     return(ring_points)
 
@@ -364,8 +362,8 @@ def generate_pipe_cloud_tensor(preds_tensor):
                                              l, p, d, x_axis, y_axis, tensor_size)
 
     return(ring_points)
-
-
+    
+    
 # generate points on surface of tee
 def generate_tee_cloud_tensor(preds_tensor):
     # read params
