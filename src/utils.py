@@ -17,11 +17,11 @@ def scale_preds(preds, cat, up=1, norm_factor = 1):
         scale_factor = 1
 
     if cat == 'pipe':
-        scalable_targets = [0,1]
+        scalable_targets = [0,1,2,3,4]
     elif cat == 'elbow':  
-        scalable_targets = [0,1,2]
+        scalable_targets = [0,1,2,3,4,5]
     elif cat == 'tee':
-        scalable_targets = [0,1,2,3]
+        scalable_targets = [0,1,2,3,4,5,6]
 
     for j in scalable_targets:
         preds[j] = preds[j]*scale_factor*norm_factor
