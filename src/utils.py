@@ -8,7 +8,7 @@ from src.chamfer import *
 from src.visualisation import *
 
 
-def scale_preds(preds, cat, up=1, norm_factor = 1):
+def scale_preds(preds, cat, up=1, norm_factor = 1, scale_positions=False):
     if up == 1:
         scale_factor = 1000
     elif up == 0:
@@ -17,11 +17,23 @@ def scale_preds(preds, cat, up=1, norm_factor = 1):
         scale_factor = 1
 
     if cat == 'pipe':
-        scalable_targets = [0,1,2,3,4]
-    elif cat == 'elbow':  
-        scalable_targets = [0,1,2,3,4,5]
+        if scale_positions:
+            scalable_targets = [0,1,2,3,4]
+        else:
+            scalable_targets = [0,1]
+
+    elif cat == 'elbow':
+        if scale_positions:
+            scalable_targets = [0,1,2,3,4,5]
+        else:
+            scalable_targets = [0,1,2]
+
     elif cat == 'tee':
         scalable_targets = [0,1,2,3,4,5,6]
+        if scale_positions:
+            scalable_targets = [0,1,2,3,4,5,6]
+        else:
+            scalable_targets = [0,1,2,3]
 
     for j in scalable_targets:
         preds[j] = preds[j]*scale_factor*norm_factor
@@ -73,7 +85,7 @@ def undo_normalisation(pcd_id, cat, preds, path, ext):
     norm_factor = np.max(np.linalg.norm((pcd_temp), axis=1))
 
     # scale and translate predictions 
-    preds = scale_preds(preds, cat, up=2, norm_factor=norm_factor)
+    preds = scale_preds(preds, cat, up=2, norm_factor=norm_factor, scale_positions=True)
     preds = translate_preds(preds, cat, norm_pcd_temp)
     preds = [float(pred) for pred in preds]
     return preds

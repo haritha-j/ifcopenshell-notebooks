@@ -6,7 +6,7 @@ import torch
 
 from torch.utils.data import Dataset
 from torchvision import transforms
-from path import Path
+from pathlib import Path
 
 from src.preparation import *
 
