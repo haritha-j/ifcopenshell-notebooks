@@ -88,7 +88,7 @@ def main(args):
     '''HYPER PARAMETER'''
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-    path = Path('output/')
+    path = Path('output2/')
     #savepath = '/content/drive/MyDrive/ElementNet/'
     savepath = 'models/'
     train_transforms = transforms.Compose([
@@ -97,7 +97,7 @@ def main(args):
                     ToTensor()
                     ])
 
-    cat = 'elbow'
+    cat = 'tee'
     train_ds = PointCloudData(path, category=cat, transform=train_transforms)
     valid_ds = PointCloudData(path, valid=True, folder='test', category=cat, transform=train_transforms)
     targets = train_ds.targets
@@ -180,7 +180,6 @@ def main(args):
         mean_correct = []
         predictor = predictor.train()
 
-        scheduler.step()
         for batch_id, data in tqdm(enumerate(trainDataLoader, 0), total=len(trainDataLoader), smoothing=0.9):
             optimizer.zero_grad()
             points, target = data['pointcloud'].to(device).float(), data['properties'].to(device)
@@ -193,7 +192,8 @@ def main(args):
             loss.backward()
             optimizer.step()
             global_step += 1
-
+        
+        scheduler.step()
         log_string('Train loss: %f' % loss)
 
         with torch.no_grad():

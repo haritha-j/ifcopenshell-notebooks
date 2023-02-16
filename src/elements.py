@@ -158,11 +158,11 @@ def create_elbow(config,  ifc, ifc_info, blueprint, i):
     return metadata
     
 # generate Ifc tee from parameters
-def create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info):
+def create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info, bp=True):
     cross_section1_filled = Circle_Section(r=r1, ifcfile=ifc, fill=True)
-    cross_section1 = Circle_Section(r=r1, ifcfile=ifc)
+    cross_section1 = Circle_Section(r=r1, ifcfile=ifc, fill=bp)
     cross_section2_filled = Circle_Section(r=r2, ifcfile=ifc, fill=True)
-    cross_section2 = Circle_Section(r=r2, ifcfile=ifc)
+    cross_section2 = Circle_Section(r=r2, ifcfile=ifc, fill=bp)
 
     beam1_full = CreateBeamGeom(ifc, section=cross_section1, L=l1, position=p1,
                       direction=d1)
@@ -182,6 +182,7 @@ def create_IfcTee(r1, r2, l1, l2, d1, d2, p1, p2, ifc, ifc_info):
     beam2 = CreatePartialBeam(ifc, container=ifc_info['floor'], name="secondary", 
                       primary_beam=beam1_filled, secondary_beam=beam2_full, 
                       owner_history=ifc_info["owner_history"], context=ifc_info["context"])
+    
 
 
 # generate Ifc tee without element substraction, only for bbox

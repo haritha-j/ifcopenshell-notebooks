@@ -5,10 +5,10 @@
             1000
         ],
         "radius2_percentage_range": [
-            0.6,
+            0.4,
             1.0
         ],
-        "same_radius_prob": 0.9,
+        "same_radius_prob": 0.6,
         "tee_right_angle_prob": 0.8,
         "tee_placement_angle_range": [
             0,

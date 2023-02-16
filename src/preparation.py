@@ -151,7 +151,7 @@ def create_merged_dataset(pcd_path, output_base, element_class, num_scans, densi
     train_clouds = {}
     test_clouds = {}
     test_point = int(len(unique_files)*(1-test_split))
-    print(test_point)
+    print(test_point, len(unique_files))
     for k, un in enumerate(unique_files):
         for i in range(num_scans-num_views):
             points = []

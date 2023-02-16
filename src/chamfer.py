@@ -335,6 +335,33 @@ def get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r, l, p, d,
 
     return(ring_points)
 
+# sample points in rings on circular surface
+def get_circle_points_tensor(no_of_rings, no_of_ring_points, r, p, x_axis, y_axis, tensor_size):
+    count = 0
+    no_of_points = no_of_ring_points * sum([i for i in range(1, no_of_rings+1)])
+    ring_points = torch.zeros((tensor_size, no_of_points, 3)).cuda()
+
+    # iterate through rings
+    for i in range(1, no_of_rings+1):
+        
+        # generate a point on the elbow axis
+        delta_r = (r/no_of_rings)*i
+                
+        # iterate through points in each ring
+        for j in range(no_of_ring_points*i):
+
+            # generate random point on ring around axis point
+            #angle_ring = torch.rand(tensor_size).cuda()*2*math.pi
+            angle_ring = torch.tensor(j*2*math.pi/(no_of_ring_points*i))
+            ring_point = (p + 
+                          ((delta_r * torch.cos(angle_ring)).unsqueeze(1) * x_axis) - 
+                          ((delta_r * torch.sin(angle_ring)).unsqueeze(1) * y_axis))
+            ring_points[:, count] = ring_point
+
+            count += 1
+
+    return(ring_points)
+
 
 # generate points on surface of cylinder
 def generate_pipe_cloud_tensor(preds_tensor):
@@ -365,7 +392,7 @@ def generate_pipe_cloud_tensor(preds_tensor):
     
     
 # generate points on surface of tee
-def generate_tee_cloud_tensor(preds_tensor):
+def generate_tee_cloud_tensor(preds_tensor, bp=False):
     # read params
     tensor_size = preds_tensor.shape[0]
     r1, l1, r2, l2 = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2], preds_tensor[:,3]
@@ -386,15 +413,28 @@ def generate_tee_cloud_tensor(preds_tensor):
     # sample points in rings along main tube
     no_of_axis_points = 50
     no_of_ring_points = 40
+    no_of_rings = 5
+    no_of_circle_ring_points = 7 
     tube1_points = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r1, 
                                              l1, p1, d1, x_axis, y_axis, tensor_size)
+    
+    if bp:
+        circle1_points = get_circle_points_tensor(no_of_rings, no_of_circle_ring_points, r1, p1,
+                                                  x_axis, y_axis, tensor_size)
+        p3 = p1 + d1 * torch.unsqueeze(l1, 1)
+        circle2_points = get_circle_points_tensor(no_of_rings, no_of_circle_ring_points, r1, p3,
+                                                  x_axis, y_axis, tensor_size)
     
     # sample points on secondary tube
     x_axis = F.normalize(torch.cross(d2, old_z))
     y_axis = F.normalize(torch.cross(d2, x_axis))   
-    tube2_points = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r2,
-                                              l2, p2, d2, x_axis, y_axis, tensor_size)
+    tube2_points = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r2, l2, 
+                                              p2, d2, x_axis, y_axis, tensor_size)
     
+    if bp:
+        p4 = p2 + d2 * torch.unsqueeze(l2, 1)
+        circle3_points = get_circle_points_tensor(no_of_rings, no_of_circle_ring_points, r2, p4,
+                                                  x_axis, y_axis, tensor_size)
     # remove points from secondary tube in main tube
     thresh = 50
     p2p1 = p2-p1
@@ -447,13 +487,21 @@ def generate_tee_cloud_tensor(preds_tensor):
         tube1_points_ref[i] = cl       
         
     if tube1_error and tube2_error:            
-        return torch.cat((tube1_points, tube2_points), 1)
+        combined = torch.cat((tube1_points, tube2_points), 1)
     elif tube1_error:
-        return torch.cat((tube1_points, tube2_points_ref), 1)
+        combined = torch.cat((tube1_points, tube2_points_ref), 1)
     elif tube2_error:
-         return torch.cat((tube1_points_ref, tube2_points), 1)
+         combined = torch.cat((tube1_points_ref, tube2_points), 1)
     else:
-        return torch.cat((tube1_points_ref, tube2_points_ref), 1)    
+        combined = torch.cat((tube1_points_ref, tube2_points_ref), 1)
+    
+    # generate additional points for bp dataset closed tees 
+    if bp:
+        return torch.cat((combined, circle1_points, circle2_points, circle3_points), 1)
+    else:
+        return combined
+        
+          
 
 
 def get_chamfer_dist_single(src, preds, cat):
@@ -493,6 +541,7 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
     return bidirectional_dist
 
 
+# alpha determines the weighting of bidirectional chamfer loss
 def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     
@@ -501,7 +550,7 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
     elif cat == "pipe":
         target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
     elif cat == "tee":
-        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor)
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=True)
     #t2 = time.perf_counter()
     chamferDist = ChamferDistance()
     if reduce:
@@ -524,8 +573,8 @@ def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):
         target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
         src_pcd_tensor = generate_pipe_cloud_tensor(src_tensor)
     elif cat == "tee":
-        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor)
-        src_pcd_tensor = generate_tee_cloud_tensor(src_tensor)
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=True)
+        src_pcd_tensor = generate_tee_cloud_tensor(src_tensor, bp=True)
     #t2 = time.perf_counter()
     chamferDist = ChamferDistance()
     bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True)
