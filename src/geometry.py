@@ -17,6 +17,10 @@ def sq_distance(x1, y1, z1, x2, y2, z2):
     return ((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
 
 
+def sq_dist_vect(v1, v2):
+    return ((v2[0] - v1[0])**2 + (v2[1] - v1[1])**2 + (v2[2] - v1[2])**2)
+
+
 def vector_mag(vec):
     return math.sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
 
