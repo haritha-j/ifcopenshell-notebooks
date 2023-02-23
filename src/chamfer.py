@@ -101,7 +101,7 @@ def get_cylinder_points(no_of_axis_points, no_of_ring_points, r, l, p, d, x_axis
 
 
 # generate points on surface of pipe
-def generate_pipe_cloud(preds):
+def generate_pipe_cloud(preds, scale=False):
     # read params
     r, l = preds[0], preds[1]
     d = get_direction_from_trig(preds, 5)
@@ -114,7 +114,10 @@ def generate_pipe_cloud(preds):
     y_axis = vector_normalise(np.cross(d, x_axis))
     
     # sample points in rings along axis
-    no_of_axis_points = 50    
+    if scale:
+        no_of_axis_points = int(50*l) if l > 1.0 else 50
+    else:
+        no_of_axis_points = 50    
     no_of_ring_points = 40
     ring_points = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
                                       r, l, p, d, x_axis, y_axis)
@@ -123,7 +126,7 @@ def generate_pipe_cloud(preds):
 
 
 # generate points on surface of tee
-def generate_tee_cloud(preds):
+def generate_tee_cloud(preds, refine=True):
     # read params
     r1, l1, r2, l2 = preds[0], preds[1], preds[2], preds[3]
     d1 = get_direction_from_trig(preds, 7)
@@ -148,42 +151,46 @@ def generate_tee_cloud(preds):
     tube2_points = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
                                       r2, l2, p2, d2, x_axis, y_axis)
     
-    # remove points from secondary tube in main tube
-    tube2_points = np.array(tube2_points)
-    p1, p2 = np.array(p1), np.array(p2)
-    p2p1 = p2-p1
-    p2p1_mag = vector_mag(p2p1)
-    tube2_points_ref = []
-    
-    for q in tube2_points:
-        dist = vector_mag(np.cross((q-p1), (p2p1))) / p2p1_mag
-        #print(dist)
-        if dist > r1:
-            tube2_points_ref.append(q.tolist())
-            
-    # remove points from main tube in secondary tube
-    tube1_points = np.array(tube1_points)
-    p3 = np.array(p2 + d2)
-    p2p3 = p2-p3
-    p2p3_mag = vector_mag(p2p3)
-    tube1_points_ref = []
-    
-    for q in tube1_points:
-        dist = vector_mag(np.cross((q-p3), (p2p3))) / p2p3_mag
-        cos_theta = np.dot(q-p2, p2p3)
-        if dist > r2 or cos_theta > 0:
-            tube1_points_ref.append(q.tolist())
-    
-    # make sure not all points are deleted if predictions are very wrong
-    thresh = 50
-    if len(tube1_points_ref) < thresh and len(tube2_points_ref) < thresh:
-        return (tube1_points.tolist() + tube2_points.tolist())
-    elif len(tube2_points_ref) < thresh:
-        return (tube1_points_ref + tube2_points.tolist())
-    elif len(tube1_points_ref) < thresh:
-        return (tube1_points.tolist() + tube2_points_ref)
+    if not refine:
+        return tube1_points + tube2_points
     else:
-        return (tube1_points_ref + tube2_points_ref)
+    
+        # remove points from secondary tube in main tube
+        tube2_points = np.array(tube2_points)
+        p1, p2 = np.array(p1), np.array(p2)
+        p2p1 = p2-p1
+        p2p1_mag = vector_mag(p2p1)
+        tube2_points_ref = []
+        
+        for q in tube2_points:
+            dist = vector_mag(np.cross((q-p1), (p2p1))) / p2p1_mag
+            #print(dist)
+            if dist > r1:
+                tube2_points_ref.append(q.tolist())
+                
+        # remove points from main tube in secondary tube
+        tube1_points = np.array(tube1_points)
+        p3 = np.array(p2 + d2)
+        p2p3 = p2-p3
+        p2p3_mag = vector_mag(p2p3)
+        tube1_points_ref = []
+        
+        for q in tube1_points:
+            dist = vector_mag(np.cross((q-p3), (p2p3))) / p2p3_mag
+            cos_theta = np.dot(q-p2, p2p3)
+            if dist > r2 or cos_theta > 0:
+                tube1_points_ref.append(q.tolist())
+        
+        # make sure not all points are deleted if predictions are very wrong
+        thresh = 50
+        if len(tube1_points_ref) < thresh and len(tube2_points_ref) < thresh:
+            return (tube1_points.tolist() + tube2_points.tolist())
+        elif len(tube2_points_ref) < thresh:
+            return (tube1_points_ref + tube2_points.tolist())
+        elif len(tube1_points_ref) < thresh:
+            return (tube1_points.tolist() + tube2_points_ref)
+        else:
+            return (tube1_points_ref + tube2_points_ref)
 
 
 # recover axis direction from six trig values starting from index k
@@ -335,6 +342,7 @@ def get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r, l, p, d,
 
     return(ring_points)
 
+
 # sample points in rings on circular surface
 def get_circle_points_tensor(no_of_rings, no_of_ring_points, r, p, x_axis, y_axis, tensor_size):
     count = 0
@@ -392,6 +400,7 @@ def generate_pipe_cloud_tensor(preds_tensor):
     
     
 # generate points on surface of tee
+# BUG: if even one tee has an error, points in all tees in batch are not deleted 
 def generate_tee_cloud_tensor(preds_tensor, bp=False):
     # read params
     tensor_size = preds_tensor.shape[0]
