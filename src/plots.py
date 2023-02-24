@@ -6,7 +6,7 @@ from src.visualisation import get_direction_from_trig
 from src.geometry import sq_distance
 
 
-def plot_error_graph(data, label):
+def plot_error_graph(data, label, x="weighted bi-directional chamfer loss", y="No. of elements", max_val=None):
     # filter top 99% to remove outliers
     sorted_data = np.sort(data)[::-1]
     cap = int(len(data)/100)
@@ -18,9 +18,14 @@ def plot_error_graph(data, label):
     # draw graph
     fig = plt.figure(figsize=(12,4))
     steps = 250
-    n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,filtered_data[0],(filtered_data[0] - 0)/steps))
+    if max_val is None:
+        n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,filtered_data[0],(filtered_data[0] - 0)/steps))
+    else:
+        n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,max_val,(max_val - 0)/steps))
     mid = 0.5*(bins[1:] + bins[:-1])
     
+    plt.xlabel(x)
+    plt.ylabel(y)
     plt.title(label)
     plt.errorbar(mid, n, yerr=0.01, fmt='none')
     
@@ -29,7 +34,7 @@ def plot_error_graph(data, label):
 # direction errors are calculated as angle deviations (in degrees)
 # dimension / angle errors are calculated as a percentage of target label
 # position errors are plotted as a percentage of target radius
-def plot_single_parameter_error(labels_list, preds_list, k, param_type, label, radius_index=0):
+def plot_single_parameter_error(labels_list, preds_list, k, param_type, label, radius_index=0, max_val=None):
     errors = []
     error_count = 0
     for i, pr in enumerate(preds_list):
@@ -60,7 +65,7 @@ def plot_single_parameter_error(labels_list, preds_list, k, param_type, label, r
     
     if error_count > 0:
         print("errors", error_count)
-    plot_error_graph(errors, label)
+    plot_error_graph(errors, "Parameter deviation", x=label, max_val=max_val)
     
 
 def plot_parameter_errors(labels_list, preds_list, cat):
