@@ -58,7 +58,7 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
 
     # check initial loss
     chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat, reduce=False)
-    print("intial loss", chamfer_loss)   
+    #print("intial loss", chamfer_loss)   
 
     # iterative refinement with adam
     for i in tqdm(range (n_iter)):
@@ -71,7 +71,7 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
         
     # check final loss
     chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat, reduce=False)
-    print("final loss", chamfer_loss)
+    #print("final loss", chamfer_loss)
     modified_preds = preds_t.detach().cpu().numpy()
     
     # visualise
