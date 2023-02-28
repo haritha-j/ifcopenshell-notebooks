@@ -76,6 +76,7 @@ def generate_elbow_cloud(preds):
 
     return ring_points
 
+
 # sample points in rings along axis of a cylinder
 def get_cylinder_points(no_of_axis_points, no_of_ring_points, r, l, p, d, x_axis, y_axis):
     ring_points = []

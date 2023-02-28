@@ -30,6 +30,10 @@ def vector_normalise(vec):
     return [vec[0]/den, vec[1]/den, vec[2]/den]
 
 
+def norm_array(v):
+    return np.array(vector_normalise(v))
+
+
 # identify a candidate for an edge of the relationship visualization
 def get_corner(obb, center_other, edge_distance):
     direction = obb[0]
