@@ -162,12 +162,12 @@ def batch_visualise(preds_dir, blueprint, path, ext, device, ifc = True):
             
             
 def merge_clouds(directory, cat):
-    path = directory + cat + "/test/"
+    path = str(directory/(cat + "/test/"))
     files = os.listdir(path)
     points_lists = []
     for f in files:
         if f.split(".")[-1] == "pcd" or f.split(".")[-1] == "ply":
-            pcd_path = path + f
+            pcd_path = path + "/"+f
             points_lists.append(o3d.io.read_point_cloud(pcd_path).points)
     
     all_points = np.concatenate(points_lists)

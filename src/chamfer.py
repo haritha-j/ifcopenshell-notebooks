@@ -11,7 +11,7 @@ from src.geometry import vector_normalise, vector_mag
 
 
 # generate points on surface of elbow
-def generate_elbow_cloud(preds):
+def generate_elbow_cloud(preds, return_elbow_edge=False):
     # read params
     r, x, y = preds[0], preds[1], preds[2], 
     d = get_direction_from_trig(preds, 8)
@@ -20,6 +20,9 @@ def generate_elbow_cloud(preds):
     
     # get new coordinate frame of elbow
     old_z = (0., 0., 1.)
+    if np.isclose(np.dot(d, old_z), 1) or np.isclose(np.dot(d, old_z), -1):
+        old_z = (0., 1., 0.)
+        
     x_axis = vector_normalise(np.cross(d, old_z))
     y_axis = vector_normalise(np.cross(d, x_axis))
     
@@ -47,6 +50,10 @@ def generate_elbow_cloud(preds):
     no_of_axis_points = 100    
     no_of_ring_points = 20
     ring_points = []
+    
+    if return_elbow_edge:
+        return (transformed_center + (r_axis * math.cos(a) * b_axis) 
+                - (r_axis * math.sin(a) * np.array(d)))
 
     # iterate through rings
     for i in range(no_of_axis_points):
@@ -111,6 +118,9 @@ def generate_pipe_cloud(preds, scale=False):
     
     # get new coordinate frame of pipe
     old_z = (0., 0., 1.)
+    if np.isclose(np.dot(d, old_z), 1) or np.isclose(np.dot(d, old_z), -1):
+        old_z = (0., 1., 0.)
+        
     x_axis = vector_normalise(np.cross(d, old_z))
     y_axis = vector_normalise(np.cross(d, x_axis))
     
@@ -137,6 +147,8 @@ def generate_tee_cloud(preds, refine=True):
     
     # get new coordinate frame of tee
     old_z = (0., 0., 1.)
+    if np.isclose(np.dot(d1, old_z), 1) or np.isclose(np.dot(d1, old_z), -1):
+        old_z = (0., 1., 0.)
     x_axis = vector_normalise(np.cross(d1, old_z))
     y_axis = vector_normalise(np.cross(d1, x_axis))
     
