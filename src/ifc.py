@@ -210,14 +210,15 @@ def CreateElbow(ifcFile, container, name, section, a, x, y, axis_dir, position,
     Flr1_Container.RelatingStructure = container
 
 
-def Circle_Section(r, ifcfile, fill=False):
+def Circle_Section(r, ifcfile, fill=False, vis_only=False):
     B1_Axis2Placement2D = ifcfile.createIfcAxis2Placement2D(
         ifcfile.createIfcCartesianPoint((0., 0., 0.)))
     if fill:
         B1_AreaProfile = ifcfile.createIfcCircleProfileDef("AREA")
     else:
         B1_AreaProfile = ifcfile.createIfcCircleHollowProfileDef("AREA")
-        B1_AreaProfile.WallThickness = 2
+        if not vis_only:
+            B1_AreaProfile.WallThickness = 2
 
     B1_AreaProfile.Position = B1_Axis2Placement2D
     B1_AreaProfile.Radius = r
@@ -253,7 +254,8 @@ def draw_bbox(bbox, center, ifc, floor, owner_history, context):
 
 def draw_cylinder(p1, p2, radius, colour,  element_name1, element_name2,
                   ifc, floor, owner_history, context):
-    sectionC1 = Circle_Section(r=radius, ifcfile=ifc)
+    sectionC1 = Circle_Section(r=radius, ifcfile=ifc, vis_only=True)
+    print(p1, p2, radius)
     name = 'rel '+element_name1 + ' x ' + element_name2
     ConnectingBeam_1 = CreateBeam(ifc, container=floor, name=name,
                                   section=sectionC1,
