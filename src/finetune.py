@@ -33,7 +33,7 @@ def chamfer_fine_tune_single(n_iter, step_size, preds, cloud, cat, blueprint):
         optimiser.step()
         
         t3 = time.perf_counter()
-        print("chamf", t2-t1, "grad", t3-t2)
+        #print("chamf", t2-t1, "grad", t3-t2)
 
         print(i, "loss", chamfer_loss.item(), "preds", preds_t.detach().cpu().numpy())
         

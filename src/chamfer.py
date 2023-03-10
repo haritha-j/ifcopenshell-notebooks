@@ -52,8 +52,10 @@ def generate_elbow_cloud(preds, return_elbow_edge=False):
     ring_points = []
     
     if return_elbow_edge:
-        return (transformed_center + (r_axis * math.cos(a) * b_axis) 
-                - (r_axis * math.sin(a) * np.array(d)))
+        return ((transformed_center + (r_axis * math.cos(a) * b_axis) 
+                - (r_axis * math.sin(a) * np.array(d))), 
+                (transformed_center + (r_axis * math.cos(a+0.01) * b_axis) 
+                - (r_axis * math.sin(a+0.01) * np.array(d))))
 
     # iterate through rings
     for i in range(no_of_axis_points):

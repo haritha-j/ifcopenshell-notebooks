@@ -111,8 +111,8 @@ def bp_tee_correction(original_pred, cloud_data, cat):
 def batch_visualise(preds_dir, blueprint, path, ext, device, ifc = True):
     # load predictions
     all_dists = []
-    #for cat in ['tee', 'elbow', 'pipe']:
-    for cat in ['pipe']:
+    for cat in ['tee', 'elbow', 'pipe']:
+    #for cat in ['pipe']:
         preds, ids, dists = load_preds(preds_dir, cat)
         print(cat, len(preds))
         all_dists.append(dists)
