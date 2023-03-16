@@ -524,8 +524,6 @@ def generate_tee_cloud_tensor(preds_tensor, bp=False):
         return torch.cat((combined, circle1_points, circle2_points, circle3_points), 1)
     else:
         return combined
-        
-          
 
 
 def get_chamfer_dist_single(src, preds, cat):

@@ -41,7 +41,7 @@ def get_elbow_features(preds):
     
     return {'r1':r, 'r2':r, 'r3':0.,
             'p1':p1, 'p2':p2, 'p3':np.array([0.,0.,0.]),
-            'd1':(-1.*d1), 'd2':d2, 'd3':np.array([0.,0.,0.])}    
+            'd1':(-1.*d1), 'd2':d2, 'd3':np. ([0.,0.,0.])}    
 
 
 # merge predictions together into one dict, and include ifc element ids from metadata file
@@ -122,6 +122,7 @@ def get_node_features(nodes, path):
     # sort all the features in the order of the original node list
     labels = np.array([i[0] for i in nodes[0]])
     element_ids = np.array([i[4] for i in nodes[0]])
+    print(node_features_from_params.keys())
     sorted_features = {}
     missing_keys = []
     keys = ['r1', 'r2', 'r3', 'p1', 'p2', 'p3', 'd1', 'd2', 'd3']
@@ -136,7 +137,7 @@ def get_node_features(nodes, path):
         else:
             missing_keys.append((element_id, labels[i]))
     
-    feature_list = []
+    feature_list = [labels]
     for key in keys:
         feature_list.append(np.array(sorted_features[key]))
     

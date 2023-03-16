@@ -4,7 +4,7 @@ import random
 import os
 import json
 import torch
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 import open3d as o3d
 
 from src.ifc import setup_ifc_file
@@ -125,6 +125,8 @@ def synthetic_dataset(config, sample_size, element_class, output_base, blueprint
             e = create_elbow(config_data[element_class], ifc, ifc_info, blueprint, i)
         elif element_class == 'tee':
             e = create_tee(config_data[element_class], ifc, ifc_info, blueprint)
+        elif element_class == 'flange':
+            e = create_flange(config_data[element_class], ifc, ifc_info, blueprint)
     
         metadata[str(i)] = e
         ifc.write(os.path.join(output_dir, '%d.ifc' % i))
@@ -152,7 +154,7 @@ def create_merged_dataset(pcd_path, output_base, element_class, num_scans, densi
     test_clouds = {}
     test_point = int(len(unique_files)*(1-test_split))
     print(test_point, len(unique_files))
-    for k, un in enumerate(unique_files):
+    for k, un in enumerate(tqdm(unique_files)):
         for i in range(num_scans-num_views):
             points = []
             for j in range(num_views):

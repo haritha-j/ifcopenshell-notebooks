@@ -9,10 +9,10 @@ from ifcopenshell.util.selector import Selector
 
 from tqdm import tqdm
 
-data_path = "/mnt/c/data/3D_CAD/"
-pipe_name = data_path + "deckboxtube.ifc"
-ip_name = data_path + "deckboxelbow.ifc"
-op_name = data_path + "deckboxtube_ref.ifc"
+data_path = "/home/haritha/documents/industrial-facility-relationships/output/temp/"
+pipe_name = data_path + "TUBE.ifc"
+ip_name = data_path + "TEE.ifc"
+op_name = data_path + "ELBOW_ref.ifc"
 
 # remove instances with name FTUBE
 def remove_ftubes(ip_name, op_name):
@@ -47,6 +47,7 @@ def remove_felbows(ip_name, op_name, pipe_name):
         branch =  el.Name[el.Name.index('BRANCH')+7:]
         fpipe_branches.append(branch)
 
+    print(fpipe_branches)
     # f1 = ifcopenshell.open(ip_name)
     # selector = Selector()
 
@@ -72,7 +73,7 @@ def remove_felbows(ip_name, op_name, pipe_name):
     f1 = open(ip_name, 'r')
 
     lines = f1.readlines()
-    refined_lines = []
+    refined_lines = []  
 
     for l in tqdm(lines):
         if 'ELBOW' in l:
@@ -88,7 +89,7 @@ def remove_felbows(ip_name, op_name, pipe_name):
 
 
     f1.close()
-
+    print(len(lines), len(refined_lines))
     f2 = open(op_name, 'w')
     f2.writelines(refined_lines)
     f2.close()
@@ -108,5 +109,5 @@ def remove_felbows(ip_name, op_name, pipe_name):
         
 
 
-#remove_felbows(ip_name, op_name, pipe_name)
-remove_ftubes(pipe_name, op_name)
+remove_felbows(ip_name, op_name, pipe_name)
+#remove_ftubes(pipe_name, op_name)

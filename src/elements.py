@@ -210,7 +210,22 @@ def create_IfcPipe(r, l, d, p, ifc, ifc_info):
                       direction=d, owner_history=ifc_info["owner_history"],
                       context=ifc_info["context"], colour=None)
 
-import math
+
+# generate IfcBeam from parameters
+def create_IfcFlange(r1, r2, l1, l2, d, p1, p2, ifc, ifc_info, fill=True):
+    cross_section1 = Circle_Section(r=r1, ifcfile=ifc, fill=fill)
+    cross_section2 = Circle_Section(r=r2, ifcfile=ifc, fill=fill)
+    
+    beam1 = CreateBeam(ifc, container=ifc_info['floor'], name="f1", 
+                      section=cross_section1, L=l1, position=p1,
+                      direction=d, owner_history=ifc_info["owner_history"],
+                      context=ifc_info["context"], colour=None)
+
+    beam2 = CreateBeam(ifc, container=ifc_info['floor'], name="f2", 
+                      section=cross_section2, L=l2, position=p2,
+                      direction=d, owner_history=ifc_info["owner_history"],
+                      context=ifc_info["context"], colour=None)
+
 
 def bounding_box_cylinder(radius, length, direction):
     # Calculate the half-width and half-height of the bounding box
@@ -290,6 +305,7 @@ def pipe_bbox(r, l, d):
     z = abs(r*cos_z*2 + l*sin_z)
     
     return (x,y,z)
+
 
 # generate random synthetic tee
 def create_tee(config,  ifc, ifc_info, blueprint):
@@ -410,6 +426,39 @@ def create_tee(config,  ifc, ifc_info, blueprint):
                 "length2":l2, "position1":p1, "position2":p2}
     return metadata
 
+
+# generate a random synthetic pipe
+def create_flange(config, ifc, ifc_info, fill=True):
+    # generate parameters
+
+    r2 = random.uniform(config['radius_range'][0], config['radius_range'][1])
+    l = r2 * random.uniform(config['length_percentage_range'][0], config['length_percentage_range'][1])
+    r1 = r2 * random.uniform(config['radius2_percentage_range'][0], config['radius2_percentage_range'][1])
+    
+    d = []
+    for ax in config['extrusion_direction_range']:
+        d.append(random.uniform(ax[0], ax[1]))
+    d_np = np.array(d)
+    d = (d_np/np.linalg.norm(d_np)).tolist()
+
+    p = []
+    for coord in config['coordinate_range']:
+        p.append(random.uniform(coord[0], coord[1]))
+        
+    # normalize bbox
+    bbox = pipe_bbox(r2,l*2,d)
+    bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
+    r2, r1, l = 1000*r2/bbox_l2, 1000*r1/bbox_l2, 1000*l/bbox_l2
+
+    # center the element
+    centerpoint = [(p[i] + l*d[i]) for i in range(3)]
+    p = [p[i] - centerpoint[i] for i in range(3)]
+    p2 = [(p[i] + l*d[i]) for i in range(3)]
+    #print('c', p)
+    
+    create_IfcFlange(r1, r2, l, l, d, p, p2, ifc, ifc_info, fill)
+    metadata = {'radius1':r1, 'radius2':r2, "direction":d, "length":l, "position":p2}
+    return metadata
 
 
 # generate a random synthetic pipe

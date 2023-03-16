@@ -27,7 +27,10 @@ def vector_mag(vec):
 
 def vector_normalise(vec):
     den = math.sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
-    return [vec[0]/den, vec[1]/den, vec[2]/den]
+    if den != 0:
+        return [vec[0]/den, vec[1]/den, vec[2]/den]
+    else:
+        return vec
 
 
 def norm_array(v):
