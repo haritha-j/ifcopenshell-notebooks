@@ -74,6 +74,12 @@ def plot_parameter_errors(labels_list, preds_list, cat):
         plot_single_parameter_error(labels_list, preds_list, 1, 'dimension', 'length')
         plot_single_parameter_error(labels_list, preds_list, 2, 'position', 'position', radius_index=0)
         plot_single_parameter_error(labels_list, preds_list, 5, 'direction', 'axis')
+    elif cat == 'flange':
+        plot_single_parameter_error(labels_list, preds_list, 0, 'dimension', 'radius1')
+        plot_single_parameter_error(labels_list, preds_list, 1, 'dimension', 'radius2')
+        plot_single_parameter_error(labels_list, preds_list, 2, 'dimension', 'length')
+        plot_single_parameter_error(labels_list, preds_list, 3, 'position', 'position', radius_index=0)
+        plot_single_parameter_error(labels_list, preds_list, 6, 'direction', 'axis')
         
     elif cat == 'elbow':
         plot_single_parameter_error(labels_list, preds_list, 0, 'dimension', 'radius')

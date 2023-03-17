@@ -110,6 +110,54 @@ def get_cylinder_points(no_of_axis_points, no_of_ring_points, r, l, p, d, x_axis
     return ring_points
 
 
+# generate points on surface of flange
+def generate_flange_cloud(preds, disc=True):
+    # read params
+    r1, r2, l = preds[0], preds[1], preds[2]
+    d = get_direction_from_trig(preds, 6)
+    #d = [preds[7], preds[8], preds[9]]
+    p0 = [preds[3], preds[4], preds[5]]
+    p = [p0[i] - ((l*d[i])) for i in range(3)]
+    p1 = [p0[i] + ((l*d[i])) for i in range(3)]
+    
+    # get new coordinate frame of flange
+    old_z = (0., 0., 1.)
+    if np.isclose(np.dot(d, old_z), 1) or np.isclose(np.dot(d, old_z), -1):
+        old_z = (0., 1., 0.)
+        
+    x_axis = vector_normalise(np.cross(d, old_z))
+    y_axis = vector_normalise(np.cross(d, x_axis))
+    
+    # sample points in rings along axis
+    if disc:
+        no_of_axis_points = 5    
+        no_of_ring_points = 50
+    else:
+        no_of_axis_points = 5   
+        no_of_ring_points = 100       
+    ring_points1 = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
+                                      r1, l, p, d, x_axis, y_axis)
+    ring_points2 = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
+                                      r2, l, p0, d, x_axis, y_axis)
+    
+    # sample points on discs on the ends of flange
+    if disc:
+        disc_points = []
+        for i in range(1,6):
+            disc_points += get_cylinder_points(1, no_of_ring_points, 
+                                              i*r2/6, l, p1, d, x_axis, y_axis)
+        for i in range(3,6):
+            disc_points += get_cylinder_points(1, no_of_ring_points, 
+                                              i*r2/6, l, p0, d, x_axis, y_axis)
+        for i in range(1,3):
+            disc_points += get_cylinder_points(1, no_of_ring_points, 
+                                              i*r2/6, l, p, d, x_axis, y_axis)
+        return (ring_points1 + ring_points2 + disc_points)
+    
+    else:
+        return (ring_points1 + ring_points2)
+
+
 # generate points on surface of pipe
 def generate_pipe_cloud(preds, scale=False):
     # read params
@@ -386,6 +434,55 @@ def get_circle_points_tensor(no_of_rings, no_of_ring_points, r, p, x_axis, y_axi
     return(ring_points)
 
 
+# generate points on surface of flange
+def generate_flange_cloud_tensor(preds_tensor, disc = True):
+    # read params
+    tensor_size = preds_tensor.shape[0]
+    r1, r2, l = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2]
+    d = get_direction_from_trig_tensor(preds_tensor, 6)
+    p0 = torch.transpose(torch.vstack((preds_tensor[:,3], 
+                                      preds_tensor[:,4], 
+                                      preds_tensor[:,5])), 
+                        0, 1)
+    p = p0 - (d * l[:, None])
+    p1 = p0 + (d * l[:, None])
+
+    # get new coordinate frame of pipe
+    old_z = torch.tensor((0., 0., 1.))
+    old_z = old_z.repeat(tensor_size, 1).cuda()
+    x_axis = F.normalize(torch.cross(d, old_z))
+    y_axis = F.normalize(torch.cross(d, x_axis))
+
+    # sample points in rings along axis
+    if disc:
+        no_of_axis_points = 5    
+        no_of_ring_points = 50
+    else:
+        no_of_axis_points = 5   
+        no_of_ring_points = 100   
+
+    ring_points1 = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r1,
+                                             l, p, d, x_axis, y_axis, tensor_size)
+    ring_points2 = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r2,
+                                             l, p0, d, x_axis, y_axis, tensor_size)
+    
+    if disc:
+        disc_points = torch.zeros((tensor_size, no_of_ring_points*10, 3)).cuda()
+        for i in range(1,6):
+            disc_points[:, no_of_ring_points*(i-1):no_of_ring_points*i] = get_cylinder_points_tensor(1, no_of_ring_points, 
+                                              i*r2/6, l, p1, d, x_axis, y_axis, tensor_size)
+        for i in range(3,6):
+            disc_points[:, no_of_ring_points*(i+2):no_of_ring_points*(i+3)] = get_cylinder_points_tensor(1, no_of_ring_points, 
+                                              i*r2/6, l, p0, d, x_axis, y_axis, tensor_size)
+        for i in range(1,3):
+            disc_points[:, no_of_ring_points*(i+7):no_of_ring_points*(i+8)] = get_cylinder_points_tensor(1, no_of_ring_points, 
+                                              i*r2/6, l, p, d, x_axis, y_axis, tensor_size)
+        return torch.cat((ring_points1, ring_points2, disc_points), 1)
+        
+    else:    
+        return torch.cat((ring_points1, ring_points2), 1)
+
+
 # generate points on surface of cylinder
 def generate_pipe_cloud_tensor(preds_tensor):
     # read params
@@ -552,6 +649,8 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
             target_pcd_list.append(generate_pipe_cloud(preds))
         elif cat == "tee":
             target_pcd_list.append(generate_tee_cloud(preds))
+        elif cat == "flange":
+            target_pcd_list.append(generate_flange_cloud(preds))
 
     target_pcd_tensor = torch.tensor(target_pcd_list).float().cuda()
     #t2 = time.perf_counter()
@@ -573,6 +672,8 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
         target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
     elif cat == "tee":
         target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=True)
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
     #t2 = time.perf_counter()
     chamferDist = ChamferDistance()
     if reduce:
@@ -597,7 +698,9 @@ def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):
     elif cat == "tee":
         target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=True)
         src_pcd_tensor = generate_tee_cloud_tensor(src_tensor, bp=True)
-    #t2 = time.perf_counter()
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
+        src_pcd_tensor = generate_flange_cloud_tensor(src_tensor, disc=True)    #t2 = time.perf_counter()
     chamferDist = ChamferDistance()
     bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True)
     #t3 = time.perf_counter()

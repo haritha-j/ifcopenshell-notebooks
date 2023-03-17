@@ -23,6 +23,12 @@ def scale_preds(preds, cat, up=1, norm_factor = 1, scale_positions=False):
         else:
             scalable_targets = [0,1]
 
+    elif cat == 'flange':
+        if scale_positions:
+            scalable_targets = [0,1,2,3,4,5]
+        else:
+            scalable_targets = [0,1,2]
+
     elif cat == 'elbow':
         if scale_positions:
             scalable_targets = [0,1,2,3,4,5]
@@ -30,7 +36,6 @@ def scale_preds(preds, cat, up=1, norm_factor = 1, scale_positions=False):
             scalable_targets = [0,1,2]
 
     elif cat == 'tee':
-        scalable_targets = [0,1,2,3,4,5,6]
         if scale_positions:
             scalable_targets = [0,1,2,3,4,5,6]
         else:
@@ -48,7 +53,7 @@ def scale_preds(preds, cat, up=1, norm_factor = 1, scale_positions=False):
 def translate_preds(preds, cat, translation):
     if cat == 'tee':
         targets = [4,5,6]
-    elif cat == 'elbow':
+    elif (cat == 'elbow' or cat == 'flange'):
         targets = [3,4,5]
     elif cat == 'pipe':
         targets = [2,3,4]
@@ -111,7 +116,7 @@ def bp_tee_correction(original_pred, cloud_data, cat):
 def batch_visualise(preds_dir, blueprint, path, ext, device, ifc = True):
     # load predictions
     all_dists = []
-    for cat in ['tee', 'elbow', 'pipe']:
+    for cat in ['tee', 'elbow', 'pipe', 'flange']:
     #for cat in ['pipe']:
         preds, ids, dists = load_preds(preds_dir, cat)
         print(cat, len(preds))
@@ -145,6 +150,8 @@ def batch_visualise(preds_dir, blueprint, path, ext, device, ifc = True):
                 target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
             elif cat == "pipe":
                 target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+            elif cat == "flange":
+                target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor)
             elif cat == "tee":
                 #target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor)
                 # temporary fix using cpu code to fix point deletion error
