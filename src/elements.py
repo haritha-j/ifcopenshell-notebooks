@@ -432,7 +432,8 @@ def create_flange(config, ifc, ifc_info, fill=True):
     # generate parameters
 
     r2 = random.uniform(config['radius_range'][0], config['radius_range'][1])
-    l = r2 * random.uniform(config['length_percentage_range'][0], config['length_percentage_range'][1])
+    l1 = r2 * random.uniform(config['length_percentage_range'][0], config['length_percentage_range'][1])
+    l2 = r2 * random.uniform(config['length_percentage_range'][0], config['length_percentage_range'][1])
     r1 = r2 * random.uniform(config['radius2_percentage_range'][0], config['radius2_percentage_range'][1])
     
     d = []
@@ -446,18 +447,18 @@ def create_flange(config, ifc, ifc_info, fill=True):
         p.append(random.uniform(coord[0], coord[1]))
         
     # normalize bbox
-    bbox = pipe_bbox(r2,l*2,d)
+    bbox = pipe_bbox(r2, (l1+l2)*2, d)
     bbox_l2 = math.sqrt(bbox[0]*bbox[0] + bbox[1]*bbox[1] + bbox[2]*bbox[2])
-    r2, r1, l = 1000*r2/bbox_l2, 1000*r1/bbox_l2, 1000*l/bbox_l2
+    r2, r1, l1, l2 = 1000*r2/bbox_l2, 1000*r1/bbox_l2, 1000*l1/bbox_l2, 1000*l2/bbox_l2
 
     # center the element
-    centerpoint = [(p[i] + l*d[i]) for i in range(3)]
+    centerpoint = [(p[i] + ((l1+l2)*d[i])/2) for i in range(3)]
     p = [p[i] - centerpoint[i] for i in range(3)]
-    p2 = [(p[i] + l*d[i]) for i in range(3)]
+    p2 = [(p[i] + l1*d[i]) for i in range(3)]
     #print('c', p)
     
-    create_IfcFlange(r1, r2, l, l, d, p, p2, ifc, ifc_info, fill)
-    metadata = {'radius1':r1, 'radius2':r2, "direction":d, "length":l, "position":p2}
+    create_IfcFlange(r1, r2, l1, l2, d, p, p2, ifc, ifc_info, fill)
+    metadata = {'radius1':r1, 'radius2':r2, "direction":d, "length1":l1, "length2":l2, "position":p2}
     return metadata
 
 

@@ -113,12 +113,12 @@ def get_cylinder_points(no_of_axis_points, no_of_ring_points, r, l, p, d, x_axis
 # generate points on surface of flange
 def generate_flange_cloud(preds, disc=True):
     # read params
-    r1, r2, l = preds[0], preds[1], preds[2]
-    d = get_direction_from_trig(preds, 6)
+    r1, r2, l1, l2 = preds[0], preds[1], preds[2], preds[3]
+    d = get_direction_from_trig(preds, 7)
     #d = [preds[7], preds[8], preds[9]]
-    p0 = [preds[3], preds[4], preds[5]]
-    p = [p0[i] - ((l*d[i])) for i in range(3)]
-    p1 = [p0[i] + ((l*d[i])) for i in range(3)]
+    p0 = [preds[3], preds[5], preds[6]]
+    p = [p0[i] - ((l1*d[i])) for i in range(3)]
+    p1 = [p0[i] + ((l2*d[i])) for i in range(3)]
     
     # get new coordinate frame of flange
     old_z = (0., 0., 1.)
@@ -136,22 +136,22 @@ def generate_flange_cloud(preds, disc=True):
         no_of_axis_points = 5   
         no_of_ring_points = 100       
     ring_points1 = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
-                                      r1, l, p, d, x_axis, y_axis)
+                                      r1, l1, p, d, x_axis, y_axis)
     ring_points2 = get_cylinder_points(no_of_axis_points, no_of_ring_points, 
-                                      r2, l, p0, d, x_axis, y_axis)
+                                      r2, l2, p0, d, x_axis, y_axis)
     
     # sample points on discs on the ends of flange
     if disc:
         disc_points = []
         for i in range(1,6):
             disc_points += get_cylinder_points(1, no_of_ring_points, 
-                                              i*r2/6, l, p1, d, x_axis, y_axis)
+                                              i*r2/6, l1, p1, d, x_axis, y_axis)
         for i in range(3,6):
             disc_points += get_cylinder_points(1, no_of_ring_points, 
-                                              i*r2/6, l, p0, d, x_axis, y_axis)
+                                              i*r2/6, l1, p0, d, x_axis, y_axis)
         for i in range(1,3):
             disc_points += get_cylinder_points(1, no_of_ring_points, 
-                                              i*r2/6, l, p, d, x_axis, y_axis)
+                                              i*r2/6, l1, p, d, x_axis, y_axis)
         return (ring_points1 + ring_points2 + disc_points)
     
     else:
@@ -438,14 +438,14 @@ def get_circle_points_tensor(no_of_rings, no_of_ring_points, r, p, x_axis, y_axi
 def generate_flange_cloud_tensor(preds_tensor, disc = True):
     # read params
     tensor_size = preds_tensor.shape[0]
-    r1, r2, l = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2]
-    d = get_direction_from_trig_tensor(preds_tensor, 6)
-    p0 = torch.transpose(torch.vstack((preds_tensor[:,3], 
-                                      preds_tensor[:,4], 
-                                      preds_tensor[:,5])), 
+    r1, r2, l1, l2 = preds_tensor[:,0], preds_tensor[:,1], preds_tensor[:,2], preds_tensor[:,3]
+    d = get_direction_from_trig_tensor(preds_tensor, 7)
+    p0 = torch.transpose(torch.vstack((preds_tensor[:,4], 
+                                      preds_tensor[:,5], 
+                                      preds_tensor[:,6])), 
                         0, 1)
-    p = p0 - (d * l[:, None])
-    p1 = p0 + (d * l[:, None])
+    p = p0 - (d * l1[:, None])
+    p1 = p0 + (d * l2[:, None])
 
     # get new coordinate frame of pipe
     old_z = torch.tensor((0., 0., 1.))
@@ -462,21 +462,21 @@ def generate_flange_cloud_tensor(preds_tensor, disc = True):
         no_of_ring_points = 100   
 
     ring_points1 = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r1,
-                                             l, p, d, x_axis, y_axis, tensor_size)
+                                             l1, p, d, x_axis, y_axis, tensor_size)
     ring_points2 = get_cylinder_points_tensor(no_of_axis_points, no_of_ring_points, r2,
-                                             l, p0, d, x_axis, y_axis, tensor_size)
+                                             l2, p0, d, x_axis, y_axis, tensor_size)
     
     if disc:
         disc_points = torch.zeros((tensor_size, no_of_ring_points*10, 3)).cuda()
         for i in range(1,6):
             disc_points[:, no_of_ring_points*(i-1):no_of_ring_points*i] = get_cylinder_points_tensor(1, no_of_ring_points, 
-                                              i*r2/6, l, p1, d, x_axis, y_axis, tensor_size)
+                                              i*r2/6, l1, p1, d, x_axis, y_axis, tensor_size)
         for i in range(3,6):
             disc_points[:, no_of_ring_points*(i+2):no_of_ring_points*(i+3)] = get_cylinder_points_tensor(1, no_of_ring_points, 
-                                              i*r2/6, l, p0, d, x_axis, y_axis, tensor_size)
+                                              i*r2/6, l1, p0, d, x_axis, y_axis, tensor_size)
         for i in range(1,3):
             disc_points[:, no_of_ring_points*(i+7):no_of_ring_points*(i+8)] = get_cylinder_points_tensor(1, no_of_ring_points, 
-                                              i*r2/6, l, p, d, x_axis, y_axis, tensor_size)
+                                              i*r2/6, l1, p, d, x_axis, y_axis, tensor_size)
         return torch.cat((ring_points1, ring_points2, disc_points), 1)
         
     else:    

@@ -52,7 +52,8 @@ def parse_pipe_properties(element_data):
 
 
 def parse_flange_properties(element_data):
-  scaled_targets = [element_data['radius1']/1000, element_data['radius2']/1000, element_data['length']/1000]
+  scaled_targets = [element_data['radius1']/1000, element_data['radius2']/1000, 
+                    element_data['length1']/1000, element_data['length2']/1000]
   unscaled_targets = []
 
   for i in range(3):

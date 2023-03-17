@@ -62,13 +62,13 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
             create_IfcPipe(pm['r'], pm['l'], pm['d'], pm['p'], ifc, ifc_info)
                     
         elif element == 'flange':
-            pm = {'r1':preds[0],'r2':preds[1], 'l':preds[2] }
-            pm['d'] = get_direction_from_trig(preds, 6)
-            pm['p0'] = [preds[3]*1000, preds[4]*1000, preds[5]*1000]
-            pm['p'] = [pm['p0'][i] - ((pm['l']*pm['d'][i])) for i in range(3)]
+            pm = {'r1':preds[0],'r2':preds[1], 'l1':preds[2], 'l2':preds[3] }
+            pm['d'] = get_direction_from_trig(preds, 7)
+            pm['p0'] = [preds[4]*1000, preds[5]*1000, preds[6]*1000]
+            pm['p'] = [pm['p0'][i] - ((pm['l1']*pm['d'][i])) for i in range(3)]
             #print(pm)
             
-            create_IfcFlange(pm['r1'], pm['r2'], pm['l'], pm['l'], pm['d'], pm['p'], pm['p0'], ifc, ifc_info)
+            create_IfcFlange(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d'], pm['p'], pm['p0'], ifc, ifc_info)
             
         elif element == 'elbow':
             pm = {'r':preds[0], 'x':preds[1], 'y':preds[2]}

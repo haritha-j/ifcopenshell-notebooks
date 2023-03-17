@@ -146,13 +146,13 @@
             1000
         ],
         "radius2_percentage_range":[
-            0.4, 
+            0.2, 
             0.6
         ],
 
         "length_percentage_range": [
             0.2,
-            0.5
+            1.0
         ],
         "extrusion_direction_range": [
             [

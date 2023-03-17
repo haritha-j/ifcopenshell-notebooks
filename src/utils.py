@@ -25,9 +25,9 @@ def scale_preds(preds, cat, up=1, norm_factor = 1, scale_positions=False):
 
     elif cat == 'flange':
         if scale_positions:
-            scalable_targets = [0,1,2,3,4,5]
+            scalable_targets = [0,1,2,3,4,5,6]
         else:
-            scalable_targets = [0,1,2]
+            scalable_targets = [0,1,2,3]
 
     elif cat == 'elbow':
         if scale_positions:
@@ -51,9 +51,9 @@ def scale_preds(preds, cat, up=1, norm_factor = 1, scale_positions=False):
 
 
 def translate_preds(preds, cat, translation):
-    if cat == 'tee':
+    if cat == 'tee' or cat == 'flange':
         targets = [4,5,6]
-    elif (cat == 'elbow' or cat == 'flange'):
+    elif (cat == 'elbow'):
         targets = [3,4,5]
     elif cat == 'pipe':
         targets = [2,3,4]
