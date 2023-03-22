@@ -41,25 +41,28 @@ def get_elbow_features(preds):
     
     return {'r1':r, 'r2':r, 'r3':0.,
             'p1':p1, 'p2':p2, 'p3':np.array([0.,0.,0.]),
-            'd1':(-1.*d1), 'd2':d2, 'd3':np. ([0.,0.,0.])}    
+            'd1':(-1.*d1), 'd2':d2, 'd3':np.array([0.,0.,0.])}    
 
 
 # merge predictions together into one dict, and include ifc element ids from metadata file
-def get_features_from_params(path):
+def get_features_from_params(path, dataset):
     #classes_to_merge = ['tee',]
-    classes_to_merge = ['elbow', 'tee']
+    classes_to_merge = ['elbow', 'tee', 'bend']
     node_dict = {}
     for cl in classes_to_merge:
         with open(path/('preds_finetuned_' + cl + '.pkl'), 'rb') as f:
             preds, ids, _ = pickle.load(f)
 
             # load metadata
-            metadata_file = path/("bp_" + cl + "_metadata.json")
+            metadata_file = path/("bp_" + dataset + "_metadata.json")
+            id_metadata_file = path/(dataset + "_id_metadata.json")
             meta_f = open(metadata_file, 'r')
             class_metadata = json.load(meta_f)[cl]
+            id_meta_f = open(id_metadata_file, 'r')
+            id_metadata = json.load(id_meta_f)[cl.upper()]
 
             for i, pred in enumerate(tqdm(preds)):
-                element_id = class_metadata[str(ids[i])]['id']
+                element_id = id_metadata[str(class_metadata[str(ids[i])]['id'])]
                 # undo normalisation on predicted parameters
                 original_pred = undo_normalisation(ids[i], cl, pred, path, ".pcd", scale_up=False)
                 # tees require an additional level of normalisation since the dataset was 
@@ -67,10 +70,11 @@ def get_features_from_params(path):
                 if cl== 'tee':
                     original_pred = bp_tee_correction(original_pred, class_metadata[str(ids[i])], cl)
                     params = get_tee_features(original_pred)
-                if cl =='elbow':
+                if cl =='elbow' or 'bend':
                     params = get_elbow_features(original_pred)
 
                 node_dict[str(element_id)] = params
+        print(len(node_dict.keys()))
 
     return (node_dict)
 
@@ -94,14 +98,14 @@ def get_pipe_and_flange_features(nodes, idx):
 # directions (d1, d2, (d3))
 # positions (p1, p2, (p3))
 # the 3rd feature is only present in tees
-def get_node_features(nodes, path):   
+def get_node_features(nodes, path, dataset):   
     # filter nodes by type
     types = ['FLANGE', 'ELBOW', 'TEE', 'TUBE', 'BEND']
     element_node_ids = {}
     for i, t in enumerate(types):
         element_node_ids[t] = [j for j, n in enumerate(nodes[0]) if n[0]==i]
         print(len(element_node_ids[t]))
-    print(nodes[0][element_node_ids['FLANGE'][0]])
+
     
     # temp fix for flanges: get flange params using bboxes. pipes use the same logic
     # TODO: infer flange params using pointnet
@@ -111,7 +115,7 @@ def get_node_features(nodes, path):
     for pi in element_node_ids['TUBE']:
         node_features_from_bboxes[str(nodes[0][pi][4])] = get_pipe_and_flange_features(nodes, pi)
         
-    node_features_from_params = get_features_from_params(path)
+    node_features_from_params = get_features_from_params(path, dataset)
     node_features = {**node_features_from_params, **node_features_from_bboxes}
     
     print("dict lengths", 
@@ -122,7 +126,6 @@ def get_node_features(nodes, path):
     # sort all the features in the order of the original node list
     labels = np.array([i[0] for i in nodes[0]])
     element_ids = np.array([i[4] for i in nodes[0]])
-    print(node_features_from_params.keys())
     sorted_features = {}
     missing_keys = []
     keys = ['r1', 'r2', 'r3', 'p1', 'p2', 'p3', 'd1', 'd2', 'd3']
@@ -141,8 +144,8 @@ def get_node_features(nodes, path):
     for key in keys:
         feature_list.append(np.array(sorted_features[key]))
     
-    print(len(sorted_features['r1']))
-    print("missing", len(missing_keys), missing_keys[0])
+    print(len(feature_list))
+    #print("missing", len(missing_keys), missing_keys[0])
     return (torch.from_numpy(np.column_stack(feature_list)))
     
     
@@ -150,11 +153,12 @@ def get_node_features(nodes, path):
 # define industrial facility graph dataset
 class IndustrialFacilityDataset(DGLDataset):
 
-    def __init__(self, data_path, site="westdeckbox", element_params=False, params_path=None):
+    def __init__(self, data_path, site="westdeckbox", element_params=False, params_path=None, dataset='west'):
         self.site= site
         self.data_path = data_path
         self.element_params = element_params
         self.params_path = params_path
+        self.dataset = dataset
         super().__init__(name='industrial_facility')
 
 
@@ -172,8 +176,7 @@ class IndustrialFacilityDataset(DGLDataset):
         # node features
         if self.element_params:
             # derive noad features from predicted parameters
-            features = get_node_features(node_info, self.params_path)
-            print(features.shape)
+            features = get_node_features(node_info, self.params_path, self.dataset)
         
         else:
             # derive node features using bboxes
@@ -193,7 +196,7 @@ class IndustrialFacilityDataset(DGLDataset):
 
         #b = np.random.randn(*labels.shape)
         #features = torch.from_numpy(np.column_stack((labels, b)))
-        print(features.shape)
+        print("features", features.shape)
         
         # edges
         edges = np.array(edges)
