@@ -57,7 +57,7 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
     optimiser = torch.optim.Adam([preds_t], lr=step_size)
 
     # check initial loss
-    chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat, reduce=False)
+    chamfer_loss, gen_cloud = get_chamfer_loss_tensor(preds_t, cloud_t, cat, reduce=False, return_cloud=True)
     #print("intial loss", chamfer_loss)   
 
     # iterative refinement with adam
@@ -70,7 +70,7 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
         print(i, "loss", chamfer_loss.detach().cpu().numpy())#, "preds", preds_t)
         
     # check final loss
-    chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat, reduce=False)
+    chamfer_loss, gen_cloud_mod = get_chamfer_loss_tensor(preds_t, cloud_t, cat, reduce=False, return_cloud=True)
     #print("final loss", chamfer_loss)
     modified_preds = preds_t.detach().cpu().numpy()
     
@@ -79,7 +79,11 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
         error_count = 0
         scaled_preds = [scale_preds(p.tolist(), cat) for p in modified_preds]
         visualisers = []
+        cloud_visualisers = []
         
+        gen_cloud = gen_cloud.detach().cpu().numpy()
+        gen_cloud_mod = gen_cloud_mod.detach().cpu().numpy()          
+
         for i, p in enumerate(scaled_preds):
             try:
                 v_orignal, _ = visualize_predictions([cloud[i].transpose(1,0).tolist()], cat, [scaled_original_preds[i]], blueprint, visualize=True)
@@ -88,9 +92,13 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
                 visualisers.append(v_modified)
             except:
                 error_count += 1
+                v_orignal, _ = visualize_predictions([cloud[i].transpose(1,0).tolist(), gen_cloud[i].tolist()], cat, [], blueprint, visualize=True)
+                v_modified, _ = visualize_predictions([None, gen_cloud_mod[i].tolist(), cloud[i].transpose(1,0).tolist()], cat, [], blueprint, visualize=True)
+                cloud_visualisers.append(v_orignal)
+                cloud_visualisers.append(v_modified)
     
 #         return v_orignal,v_modified, modified_preds
         print("errors ", error_count)
-        return visualisers, modified_preds
+        return cloud_visualisers, visualisers, modified_preds
     else:
         return modified_preds

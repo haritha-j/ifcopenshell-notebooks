@@ -22,16 +22,16 @@ elbow_edge_threshold = 0.0005
 # returns radius, length
 def flange_radius(bbox):
     diff01 = abs(bbox[0]-bbox[1])
-    diff02 = abs(bbox[0]-bbox[1])
-    diff12 = abs(bbox[0]-bbox[1])
+    diff02 = abs(bbox[0]-bbox[2])
+    diff12 = abs(bbox[1]-bbox[2])
     
     if (diff01<diff02) and (diff01<diff12):
-        return ((bbox[0]+bbox[1])/2, bbox[2])
+        return ((bbox[0]+bbox[1])/4, bbox[2])
     elif (diff02<diff01) and (diff02<diff12):
-        return ((bbox[0]+bbox[2])/2, bbox[1])
+        return ((bbox[0]+bbox[2])/4, bbox[1])
     #elif (diff12<diff01) and (diff12<diff02):
     else:
-        return ((bbox[1]+bbox[2])/2, bbox[0])
+        return ((bbox[1]+bbox[2])/4, bbox[0])
 
 
 def get_radius_from_bbox(bbox):

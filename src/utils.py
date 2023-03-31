@@ -51,9 +51,9 @@ def scale_preds(preds, cat, up=1, norm_factor = 1, scale_positions=False):
 
 
 def translate_preds(preds, cat, translation):
-    if cat == 'tee' or 'flange':
+    if cat == 'tee' or cat == 'flange':
         targets = [4,5,6]
-    elif cat == 'elbow' or 'bend':
+    elif cat == 'elbow' or cat == 'bend':
         targets = [3,4,5]
     elif cat == 'pipe':
         targets = [2,3,4]

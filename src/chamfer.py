@@ -54,8 +54,8 @@ def generate_elbow_cloud(preds, return_elbow_edge=False):
     if return_elbow_edge:
         return ((transformed_center + (r_axis * math.cos(a) * b_axis) 
                 - (r_axis * math.sin(a) * np.array(d))), 
-                (transformed_center + (r_axis * math.cos(a+0.01) * b_axis) 
-                - (r_axis * math.sin(a+0.01) * np.array(d))))
+                (transformed_center + (r_axis * math.cos(a+0.001) * b_axis) 
+                - (r_axis * math.sin(a+0.001) * np.array(d))))
 
     # iterate through rings
     for i in range(no_of_axis_points):
@@ -663,7 +663,7 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
 
 
 # alpha determines the weighting of bidirectional chamfer loss
-def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0):
+def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0, return_cloud=False):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     
     if cat == "elbow":
@@ -684,7 +684,10 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
                                          reduction=None, alpha=alpha)
     #t3 = time.perf_counter()
     #print("cloud", t2-t1, "chamf", t3-t2)
-    return bidirectional_dist
+    if return_cloud:
+        return bidirectional_dist, target_pcd_tensor
+    else:
+        return bidirectional_dist
 
 
 def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):

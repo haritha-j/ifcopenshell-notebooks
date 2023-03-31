@@ -27,27 +27,52 @@ def get_tee_features(preds):
     p2 = pm['p2'] + pm['d1'] * pm['l1'] * 0.5
     p3 = pm['p2'] + pm['d2'] * pm['l2']
     
-    return {'r1':pm['r1'], 'r2':pm['r2'], 'r3':pm['r2'],
-            'p1':p1, 'p2':p2, 'p3':p3,
+    return {'r1':pm['r1']/1000, 'r2':pm['r1']/1000, 'r3':pm['r2']/1000,
+            'p1':p1/1000, 'p2':p2/1000, 'p3':p3/1000,
             'd1':(-1.*pm['d1']), 'd2':pm['d1'], 'd3':pm['d2']}
 
 
+def get_pipe_features(preds):
+    r, l = preds[0], preds[1]
+    d = np.array(get_direction_from_trig(preds, 5))
+    p0 = np.array([preds[2], preds[3], preds[4]])
+    p1 = p0 - d * l * 0.5
+    p2 = p0 + d * l * 0.5
+    
+    return {'r1':r/1000, 'r2':r/1000, 'r3':0.,
+            'p1':p1/1000, 'p2':p2/1000, 'p3':np.array([0.,0.,0.]),
+            'd1':(-1.*d), 'd2':d, 'd3':np.array([0.,0.,0.])}
+
+def get_flange_features(preds):
+    r1, r2, l1, l2 = preds[0], preds[1], preds[2], preds[3]
+    d = np.array(get_direction_from_trig(preds, 7))
+    p0 = np.array([preds[4], preds[5], preds[6]])
+    p1 = p0 - d * l1 * 0.5
+    p2 = p0 + d * l2 * 0.5
+    
+    return {'r1':r1/1000, 'r2':r2/1000, 'r3':0.,
+            'p1':p1/1000, 'p2':p2/1000, 'p3':np.array([0.,0.,0.]),
+            'd1':(-1.*d), 'd2':d, 'd3':np.array([0.,0.,0.])}
+        
+    
 def get_elbow_features(preds):
     r = preds[0]
     p1 = np.array([preds[3], preds[4], preds[5]])
     d1 = np.array(get_direction_from_trig(preds, 8))
     p2, p_extended = generate_elbow_cloud(preds, return_elbow_edge=True)
-    d2 = vector_normalise(p_extended - p2)
+    d2 = vector_normalise(p2 - p_extended)
+    print(d1, d2)
+    print("elbow angle", math.degrees(math.atan2(preds[6], preds[7])), "d angle", math.degrees(np.arccos(np.dot(d1, d2))))
     
-    return {'r1':r, 'r2':r, 'r3':0.,
-            'p1':p1, 'p2':p2, 'p3':np.array([0.,0.,0.]),
+    return {'r1':r/1000, 'r2':r/1000, 'r3':0.,
+            'p1':p1/1000, 'p2':p2/1000, 'p3':np.array([0.,0.,0.]),
             'd1':(-1.*d1), 'd2':d2, 'd3':np.array([0.,0.,0.])}    
 
 
 # merge predictions together into one dict, and include ifc element ids from metadata file
 def get_features_from_params(path, dataset):
     #classes_to_merge = ['tee',]
-    classes_to_merge = ['elbow', 'tee', 'bend']
+    classes_to_merge = ['elbow', 'tee', 'bend', 'flange', 'pipe']
     node_dict = {}
     for cl in classes_to_merge:
         with open(path/('preds_finetuned_' + cl + '.pkl'), 'rb') as f:
@@ -70,8 +95,14 @@ def get_features_from_params(path, dataset):
                 if cl== 'tee':
                     original_pred = bp_tee_correction(original_pred, class_metadata[str(ids[i])], cl)
                     params = get_tee_features(original_pred)
-                if cl =='elbow' or 'bend':
+                elif cl == 'elbow' or cl == 'bend':
+                    print(cl)
                     params = get_elbow_features(original_pred)
+                elif cl == 'flange':
+                    params = get_flange_features(original_pred)
+                elif cl == 'pipe':
+                    params = get_pipe_features(original_pred)
+                #print(cl, params)
 
                 node_dict[str(element_id)] = params
         print(len(node_dict.keys()))
@@ -79,16 +110,16 @@ def get_features_from_params(path, dataset):
     return (node_dict)
 
 
-def get_pipe_and_flange_features(nodes, idx):
-    r, l = flange_radius(nodes[0][idx][2])
-    d = np.array(nodes[0][idx][3])
-    p1 = np.array(nodes[0][idx][1]) - d/2
-    p2 = np.array(nodes[0][idx][1]) + d/2
-    # get d, p build node feature dict 
+# def get_pipe_features(nodes, idx):
+#     r, l = flange_radius(nodes[0][idx][2])
+#     d = np.array(nodes[0][idx][3])
+#     p1 = np.array(nodes[0][idx][1]) - l*d/2
+#     p2 = np.array(nodes[0][idx][1]) + l*d/2
+#     # get d, p build node feature dict 
     
-    return {'r1':r, 'r2':r, 'r3':0.,
-            'p1':p1, 'p2':p2, 'p3':np.array([0.,0.,0.]),
-            'd1':-1.*d, 'd2':d, 'd3':np.array([0.,0.,0.])}
+#     return {'r1':r, 'r2':r, 'r3':0.,
+#             'p1':p1, 'p2':p2, 'p3':np.array([0.,0.,0.]),
+#             'd1':-1.*d, 'd2':d, 'd3':np.array([0.,0.,0.])}
 
 
 # derive noad features from predicted parameters
@@ -109,19 +140,22 @@ def get_node_features(nodes, path, dataset):
     
     # temp fix for flanges: get flange params using bboxes. pipes use the same logic
     # TODO: infer flange params using pointnet
-    node_features_from_bboxes = {}
-    for fl in element_node_ids['FLANGE']:
-        node_features_from_bboxes[str(nodes[0][fl][4])] = get_pipe_and_flange_features(nodes, fl)
-    for pi in element_node_ids['TUBE']:
-        node_features_from_bboxes[str(nodes[0][pi][4])] = get_pipe_and_flange_features(nodes, pi)
-        
-    node_features_from_params = get_features_from_params(path, dataset)
-    node_features = {**node_features_from_params, **node_features_from_bboxes}
+    # node_features_from_bboxes = {}
+    # for fl in element_node_ids['FLANGE']:
+    #     node_features_from_bboxes[str(nodes[0][fl][4])] = get_pipe_and_flange_features(nodes, fl)
+    #     print ("fl", get_pipe_and_flange_features(nodes, fl), "fln", nodes[0][fl])
+    # for pi in element_node_ids['TUBE']:
+    #     node_features_from_bboxes[str(nodes[0][pi][4])] = get_pipe_features(nodes, pi)
+    #     print ("pi", get_pipe_features(nodes, pi))
+        #print ("pin", nodes[0][pi])
+
+    node_features = get_features_from_params(path, dataset)
+    #node_features = {**node_features_from_params, **node_features_from_bboxes}
     
-    print("dict lengths", 
-          len(node_features_from_params.keys()), 
-          len(node_features_from_bboxes.keys()), 
-          len(node_features.keys()))
+    # print("dict lengths", 
+    #       len(node_features_from_params.keys()), 
+    #       len(node_features_from_bboxes.keys()), 
+    #       len(node_features.keys()))
     
     # sort all the features in the order of the original node list
     labels = np.array([i[0] for i in nodes[0]])
