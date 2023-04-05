@@ -129,7 +129,7 @@ def get_features_from_params(path, dataset):
 # directions (d1, d2, (d3))
 # positions (p1, p2, (p3))
 # the 3rd feature is only present in tees
-def get_node_features(nodes, path, dataset):   
+def get_node_features(nodes, path, dataset, additional_features):   
     # filter nodes by type
     types = ['FLANGE', 'ELBOW', 'TEE', 'TUBE', 'BEND']
     element_node_ids = {}
@@ -177,6 +177,8 @@ def get_node_features(nodes, path, dataset):
     feature_list = [labels]
     for key in keys:
         feature_list.append(np.array(sorted_features[key]))
+        
+    feature_list = feature_list + additional_features
     
     print(len(feature_list))
     #print("missing", len(missing_keys), missing_keys[0])
@@ -206,18 +208,19 @@ class IndustrialFacilityDataset(DGLDataset):
             node_info = pickle.load(f)
         with open(self.data_path + edge_file, 'rb') as f:
             edges = pickle.load(f)
-            
+         
+        # derive node features using bboxes
+        labels = np.array([i[0] for i in node_info[0]])
+        centers = np.array([i[1] for i in node_info[0]])
+        lengths = np.array([i[2] for i in node_info[0]])
+        directions = np.array([i[3] for i in node_info[0]])
+               
         # node features
         if self.element_params:
             # derive noad features from predicted parameters
-            features = get_node_features(node_info, self.params_path, self.dataset)
+            features = get_node_features(node_info, self.params_path, self.dataset, [centers, lengths])
         
         else:
-            # derive node features using bboxes
-            labels = np.array([i[0] for i in node_info[0]])
-            centers = np.array([i[1] for i in node_info[0]])
-            lengths = np.array([i[2] for i in node_info[0]])
-            directions = np.array([i[3] for i in node_info[0]])
             features = torch.from_numpy(np.column_stack((labels, centers, lengths, directions)))
         
         # points = np.array(node_info[1])

@@ -19,7 +19,7 @@ def vis_ifc_and_cloud(ifc, clouds):
     for i, cloud in enumerate(clouds):
         if cloud is not None:
             gp_pnt_list = [gp_Pnt(k[0], k[1], k[2]) for k in cloud]
-            print("no points:", len(gp_pnt_list))
+            #print("no points:", len(gp_pnt_list))
             col = i if i < len(colours) else 0
             viewer.DisplayShape(gp_pnt_list, vertex_color=colours[col])
     return viewer
