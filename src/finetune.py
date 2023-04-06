@@ -12,44 +12,6 @@ from src.visualisation import visualize_predictions
 from src.utils import scale_preds
 
 
-# single thread, adam optimiser
-def chamfer_fine_tune_single(n_iter, step_size, preds, cloud, cat, blueprint):
-    print(cloud.shape)
-    cuda = torch.device('cuda')
-    #cloud = cloud.transpose(1,0)
-    preds_copy = copy.deepcopy(preds)
-    scaled_original_preds = scale_preds(preds_copy.tolist(), cat)
-    preds_t = torch.tensor([preds], requires_grad=True, device=cuda)
-    cloud_t = torch.tensor([cloud], device=cuda)
-
-    optimiser = torch.optim.Adam([preds_t], lr=step_size)
-
-    for i in tqdm(range (n_iter)):
-        t1 = time.perf_counter()
-
-        optimiser.zero_grad()
-        chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat)
-        t2 = time.perf_counter()
-                # backward pass for computing the gradients of the loss w.r.t to learnable parameters
-        chamfer_loss.backward()
-        optimiser.step()
-        
-        t3 = time.perf_counter()
-        #print("chamf", t2-t1, "grad", t3-t2)
-
-        print(i, "loss", chamfer_loss.item(), "preds", preds_t.detach().cpu().numpy())
-        
-    # visualise
-    modified_preds = preds_t.detach().cpu().numpy()[0].tolist()
-    scaled_preds = scale_preds(modified_preds, cat)
-    v_orignal, _ = visualize_predictions([cloud.transpose(1,0).tolist()], cat, [scaled_original_preds], 
-                                         blueprint, visualize=True)
-    v_modified, _ = visualize_predictions([cloud.transpose(1,0).tolist()], cat, [scaled_preds], 
-                                          blueprint, visualize=True)
-    
-    return [v_orignal,v_modified], chamfer_loss.item()
-
-
 # additional fix for elbows which have thick edges
 def elbow_correction(n_iter, step_size, modified_preds, cloud, blueprint, gen_cloud_mod):
    
@@ -58,7 +20,7 @@ def elbow_correction(n_iter, step_size, modified_preds, cloud, blueprint, gen_cl
     erroneous_clouds = []
     indices = []
     # filter out erreneous predictions by checking if they can be visualised
-    for i, p in enumerate(scaled_preds):
+    for i, p in enumerate(tqdm(scaled_preds)):
         try:
             v_modified, _ = visualize_predictions([None, None, cloud[i].transpose(1,0).tolist()], "elbow", 
                                                   [scaled_preds[i]], blueprint, visualize=True)
@@ -211,3 +173,41 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
             return modified_preds
         else:
             return modified_preds, chamfer_loss, gen_cloud_mod
+
+
+# single thread, adam optimiser
+def chamfer_fine_tune_single(n_iter, step_size, preds, cloud, cat, blueprint):
+    print(cloud.shape)
+    cuda = torch.device('cuda')
+    #cloud = cloud.transpose(1,0)
+    preds_copy = copy.deepcopy(preds)
+    scaled_original_preds = scale_preds(preds_copy.tolist(), cat)
+    preds_t = torch.tensor([preds], requires_grad=True, device=cuda)
+    cloud_t = torch.tensor([cloud], device=cuda)
+
+    optimiser = torch.optim.Adam([preds_t], lr=step_size)
+
+    for i in tqdm(range (n_iter)):
+        t1 = time.perf_counter()
+
+        optimiser.zero_grad()
+        chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat)
+        t2 = time.perf_counter()
+                # backward pass for computing the gradients of the loss w.r.t to learnable parameters
+        chamfer_loss.backward()
+        optimiser.step()
+        
+        t3 = time.perf_counter()
+        #print("chamf", t2-t1, "grad", t3-t2)
+
+        print(i, "loss", chamfer_loss.item(), "preds", preds_t.detach().cpu().numpy())
+        
+    # visualise
+    modified_preds = preds_t.detach().cpu().numpy()[0].tolist()
+    scaled_preds = scale_preds(modified_preds, cat)
+    v_orignal, _ = visualize_predictions([cloud.transpose(1,0).tolist()], cat, [scaled_original_preds], 
+                                         blueprint, visualize=True)
+    v_modified, _ = visualize_predictions([cloud.transpose(1,0).tolist()], cat, [scaled_preds], 
+                                          blueprint, visualize=True)
+    
+    return [v_orignal,v_modified], chamfer_loss.item()

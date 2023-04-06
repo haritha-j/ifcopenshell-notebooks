@@ -10,7 +10,7 @@ import dgl
 from dgl.data import DGLDataset
 import torch
 
-from src.geometry import get_dimensions, vector_normalise
+from src.geometry import get_dimensions, vector_normalise, norm_array
 from src.utils import *
 
 from src.cloud import element_to_cloud
@@ -21,8 +21,8 @@ from src.centerline import flange_radius
 def get_tee_features(preds):
     pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3]}
     pm['p2'] = np.array([preds[4], preds[5], preds[6]])
-    pm['d1'] = np.array(get_direction_from_trig(preds, 7))      
-    pm['d2'] = np.array(get_direction_from_trig(preds, 13))
+    pm['d1'] = norm_array(np.array(get_direction_from_trig(preds, 7)))   
+    pm['d2'] = norm_array(np.array(get_direction_from_trig(preds, 13)))
     p1 = pm['p2'] - pm['d1'] * pm['l1'] * 0.5
     p2 = pm['p2'] + pm['d1'] * pm['l1'] * 0.5
     p3 = pm['p2'] + pm['d2'] * pm['l2']
@@ -34,7 +34,7 @@ def get_tee_features(preds):
 
 def get_pipe_features(preds):
     r, l = preds[0], preds[1]
-    d = np.array(get_direction_from_trig(preds, 5))
+    d = norm_array(np.array(get_direction_from_trig(preds, 5)))
     p0 = np.array([preds[2], preds[3], preds[4]])
     p1 = p0 - d * l * 0.5
     p2 = p0 + d * l * 0.5
@@ -45,7 +45,7 @@ def get_pipe_features(preds):
 
 def get_flange_features(preds):
     r1, r2, l1, l2 = preds[0], preds[1], preds[2], preds[3]
-    d = np.array(get_direction_from_trig(preds, 7))
+    d = norm_array(np.array(get_direction_from_trig(preds, 7)))
     p0 = np.array([preds[4], preds[5], preds[6]])
     p1 = p0 - d * l1 * 0.5
     p2 = p0 + d * l2 * 0.5
@@ -58,11 +58,11 @@ def get_flange_features(preds):
 def get_elbow_features(preds):
     r = preds[0]
     p1 = np.array([preds[3], preds[4], preds[5]])
-    d1 = np.array(get_direction_from_trig(preds, 8))
+    d1 = norm_array(np.array(get_direction_from_trig(preds, 8)))
     p2, p_extended = generate_elbow_cloud(preds, return_elbow_edge=True)
-    d2 = vector_normalise(p2 - p_extended)
-    print(d1, d2)
-    print("elbow angle", math.degrees(math.atan2(preds[6], preds[7])), "d angle", math.degrees(np.arccos(np.dot(d1, d2))))
+    d2 = norm_array(p2 - p_extended)
+    #print(d1, d2)
+    #print("elbow angle", math.degrees(math.atan2(preds[6], preds[7])), "d angle", math.degrees(np.arccos(np.dot(d1, d2))))
     
     return {'r1':r/1000, 'r2':r/1000, 'r3':0.,
             'p1':p1/1000, 'p2':p2/1000, 'p3':np.array([0.,0.,0.]),
@@ -96,7 +96,6 @@ def get_features_from_params(path, dataset):
                     original_pred = bp_tee_correction(original_pred, class_metadata[str(ids[i])], cl)
                     params = get_tee_features(original_pred)
                 elif cl == 'elbow' or cl == 'bend':
-                    print(cl)
                     params = get_elbow_features(original_pred)
                 elif cl == 'flange':
                     params = get_flange_features(original_pred)

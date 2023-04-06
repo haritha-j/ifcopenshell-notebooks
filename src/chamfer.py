@@ -657,7 +657,7 @@ def generate_elbow_cloud_tensor(preds_tensor, return_elbow_edge=False):
 def generate_socket_elbow_cloud_tensor(preds_tensor):
     # read params
     tensor_size = preds_tensor.shape[0]
-    r, x, y, l = torch.clone(preds_tensor[:,0]), preds_tensor[:,1], preds_tensor[:,2], preds_tensor[:,14]
+    r, x, y, l = torch.clone(preds_tensor[:,0]), torch.clone(preds_tensor[:,1]), torch.clone(preds_tensor[:,2]), torch.clone(preds_tensor[:,14])
     d = get_direction_from_trig_tensor(preds_tensor, 8)
     a = torch.atan2(preds_tensor[:,6], preds_tensor[:,7])
     p = torch.clone(torch.transpose(torch.vstack((preds_tensor[:,3], 
@@ -667,24 +667,29 @@ def generate_socket_elbow_cloud_tensor(preds_tensor):
 
     # find start of elbow section 
     p1 = p - (d * l[:, None])
-    elbow_preds_tensor = torch.clone(preds_tensor)
+    elbow_preds_tensor = preds_tensor.clone()
     elbow_preds_tensor[:,3] = p1[:,0]
     elbow_preds_tensor[:,4] = p1[:,1]
     elbow_preds_tensor[:,5] = p1[:,2]
     
     # slightly reduce radius, and modify x and y
-    elbow_preds_tensor[:,0] = elbow_preds_tensor[:,0] * 0.9
+    elbow_preds_tensor_r = elbow_preds_tensor[:,0] * 0.9
     r_old = torch.sqrt(torch.square(x) + torch.square(y))
     c_a, s_a = torch.cos(a), torch.sin(a)
-    scale_factor = torch.div((r_old - r_old*c_a - l*s_a) / (1-c_a), r_old)
-
-    elbow_preds_tensor[:,1] = torch.mul(elbow_preds_tensor[:,1], scale_factor)
-    elbow_preds_tensor[:,2] = torch.mul(elbow_preds_tensor[:,2], scale_factor)
-    elbow_preds_tensor[:,2] = elbow_preds_tensor[:,2] *scale_factor
+    scale_factor = torch.div((r_old - r_old*c_a - l*s_a), (1-c_a)*r_old)
     
-    p2, p2a, p2b = generate_elbow_cloud_tensor(elbow_preds_tensor, return_elbow_edge=True)
+    elbow_preds_tensor_x = torch.mul(elbow_preds_tensor[:,1], scale_factor)
+    elbow_preds_tensor_y = torch.mul(elbow_preds_tensor[:,2], scale_factor)
+    elbow_preds_tensor_new = torch.column_stack((elbow_preds_tensor_r, 
+                                                 elbow_preds_tensor_x, 
+                                                 elbow_preds_tensor_y, 
+                                                 elbow_preds_tensor[:,3:]))
+    # elbow_preds_tensor[:,2] = torch.mul(elbow_preds_tensor[:,2], scale_factor)
+    # elbow_preds_tensor[:,2] = elbow_preds_tensor[:,2] *scale_factor
+    
+    p2, p2a, p2b = generate_elbow_cloud_tensor(elbow_preds_tensor_new, return_elbow_edge=True)
     d2 = F.normalize(p2a - p2b)
-    elbow_points = generate_elbow_cloud_tensor(elbow_preds_tensor)
+    elbow_points = generate_elbow_cloud_tensor(elbow_preds_tensor_new)
 
     # generate socket points for first socket
     # get new coordinate frame of pipe
