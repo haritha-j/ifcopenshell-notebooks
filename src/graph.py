@@ -1,7 +1,7 @@
 # utilities for graph dataset generation from IFC
 
 from ifcopenshell.util.selector import Selector
-from tqdm import tqdm
+from tqdm import tqdm_notebook as tqdm
 import pickle
 import numpy as np
 
@@ -59,8 +59,8 @@ def get_elbow_features(preds):
     r = preds[0]
     p1 = np.array([preds[3], preds[4], preds[5]])
     d1 = norm_array(np.array(get_direction_from_trig(preds, 8)))
-    p2, p_extended = generate_elbow_cloud(preds, return_elbow_edge=True)
-    d2 = norm_array(p2 - p_extended)
+    p2, p2a,  p2b = generate_elbow_cloud(preds, return_elbow_edge=True)
+    d2 = norm_array(p2b - p2a)
     #print(d1, d2)
     #print("elbow angle", math.degrees(math.atan2(preds[6], preds[7])), "d angle", math.degrees(np.arccos(np.dot(d1, d2))))
     
