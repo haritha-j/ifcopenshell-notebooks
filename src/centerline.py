@@ -349,7 +349,7 @@ def visualise_elbows(elbows, pipes, pipe_edges, return_type="cloud"):
         params, b_edge = get_elbow_params_from_pipes(el, pipes, pipe_edges)
             
         # additional check to ensure the end of the elbow coincides with the end of the pipe
-        elbow_edge, _ = generate_elbow_cloud(params, return_elbow_edge=True)
+        elbow_edge, _, _ = generate_elbow_cloud(params, return_elbow_edge=True)
         if (sq_dist_vect(elbow_edge, b_edge) > elbow_edge_threshold):
             continue
         refined_elbows.append(el)

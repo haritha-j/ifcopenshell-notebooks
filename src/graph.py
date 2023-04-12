@@ -136,18 +136,6 @@ def get_node_features(nodes, path, dataset, additional_features):
         element_node_ids[t] = [j for j, n in enumerate(nodes[0]) if n[0]==i]
         print(len(element_node_ids[t]))
 
-    
-    # temp fix for flanges: get flange params using bboxes. pipes use the same logic
-    # TODO: infer flange params using pointnet
-    # node_features_from_bboxes = {}
-    # for fl in element_node_ids['FLANGE']:
-    #     node_features_from_bboxes[str(nodes[0][fl][4])] = get_pipe_and_flange_features(nodes, fl)
-    #     print ("fl", get_pipe_and_flange_features(nodes, fl), "fln", nodes[0][fl])
-    # for pi in element_node_ids['TUBE']:
-    #     node_features_from_bboxes[str(nodes[0][pi][4])] = get_pipe_features(nodes, pi)
-    #     print ("pi", get_pipe_features(nodes, pi))
-        #print ("pin", nodes[0][pi])
-
     node_features = get_features_from_params(path, dataset)
     #node_features = {**node_features_from_params, **node_features_from_bboxes}
     
@@ -160,18 +148,14 @@ def get_node_features(nodes, path, dataset, additional_features):
     labels = np.array([i[0] for i in nodes[0]])
     element_ids = np.array([i[4] for i in nodes[0]])
     sorted_features = {}
-    missing_keys = []
     keys = ['r1', 'r2', 'r3', 'p1', 'p2', 'p3', 'd1', 'd2', 'd3']
     for key in keys:
         sorted_features[key] =[]
             
     for i, element_id in enumerate(element_ids):
-        if str(element_id) in node_features.keys():        
-            nf = node_features[str(element_id)]
-            for key in keys:
-                sorted_features[key].append(nf[key])
-        else:
-            missing_keys.append((element_id, labels[i]))
+        nf = node_features[str(element_id)]
+        for key in keys:
+            sorted_features[key].append(nf[key])
     
     feature_list = [labels]
     for key in keys:
@@ -217,21 +201,12 @@ class IndustrialFacilityDataset(DGLDataset):
         # node features
         if self.element_params:
             # derive noad features from predicted parameters
+            #features = get_node_features(node_info, self.params_path, self.dataset, [])
             features = get_node_features(node_info, self.params_path, self.dataset, [centers, lengths])
         
         else:
             features = torch.from_numpy(np.column_stack((labels, centers, lengths, directions)))
-        
-        # points = np.array(node_info[1])
-        # points = points.reshape((points.shape[0], points.shape[1]*points.shape[2]))
-        # features = torch.from_numpy(points)
-        # print(np.array([i[0] for i in node_info[0]]).shape, np.array([i[1] for i in node_info[0]]).shape, 
-        #       np.array([i[2] for i in node_info[0]]).shape, np.array([i[3] for i in node_info[0]]).shape)
 
-
-
-        #b = np.random.randn(*labels.shape)
-        #features = torch.from_numpy(np.column_stack((labels, b)))
         print("features", features.shape)
         
         # edges
@@ -243,27 +218,7 @@ class IndustrialFacilityDataset(DGLDataset):
         # create graph
         self.graph = dgl.to_bidirected(dgl.graph((edges_src, edges_dst), num_nodes = len(node_info[0])))
         self.graph.ndata['feat'] = features
-        # self.graph.ndata['centers'] = centers
-        # self.graph.ndata['directions'] = directions
-        # self.graph.ndata['lengths'] = lengths
-        # self.graph.ndata['label'] = labels
-        #self.graph.ndata['points'] = points
-        #self.graph.edata['weight'] = edge_features
 
-        # If your dataset is a node classification dataset, you will need to assign
-        # masks indicating whether a node belongs to training, validation, and test set.
-#         n_nodes = nodes_data.shape[0]
-#         n_train = int(n_nodes * 0.6)
-#         n_val = int(n_nodes * 0.2)
-#         train_mask = torch.zeros(n_nodes, dtype=torch.bool)
-#         val_mask = torch.zeros(n_nodes, dtype=torch.bool)
-#         test_mask = torch.zeros(n_nodes, dtype=torch.bool)
-#         train_mask[:n_train] = True
-#         val_mask[n_train:n_train + n_val] = True
-#         test_mask[n_train + n_val:] = True
-#         self.graph.ndata['train_mask'] = train_mask
-#         self.graph.ndata['val_mask'] = val_mask
-#         self.graph.ndata['test_mask'] = test_mask
 
     def __getitem__(self, i):
         return self.graph
