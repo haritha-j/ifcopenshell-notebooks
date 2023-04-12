@@ -19,7 +19,7 @@ from src.centerline import flange_radius
 
 #TODO: Check these parameters
 def get_tee_features(preds):
-    pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3]}
+    pm = {'r1':abs(preds[0]), 'l1':abs(preds[1]), 'r2':abs(preds[2]),'l2':abs(preds[3])}
     pm['p2'] = np.array([preds[4], preds[5], preds[6]])
     pm['d1'] = norm_array(np.array(get_direction_from_trig(preds, 7)))   
     pm['d2'] = norm_array(np.array(get_direction_from_trig(preds, 13)))
@@ -33,7 +33,7 @@ def get_tee_features(preds):
 
 
 def get_pipe_features(preds):
-    r, l = preds[0], preds[1]
+    r, l = abs(preds[0]), abs(preds[1])
     d = norm_array(np.array(get_direction_from_trig(preds, 5)))
     p0 = np.array([preds[2], preds[3], preds[4]])
     p1 = p0 - d * l * 0.5
@@ -44,7 +44,7 @@ def get_pipe_features(preds):
             'd1':(-1.*d), 'd2':d, 'd3':np.array([0.,0.,0.])}
 
 def get_flange_features(preds):
-    r1, r2, l1, l2 = preds[0], preds[1], preds[2], preds[3]
+    r1, r2, l1, l2 = abs(preds[0]), abs(preds[1]), abs(preds[2]), abs(preds[3])
     d = norm_array(np.array(get_direction_from_trig(preds, 7)))
     p0 = np.array([preds[4], preds[5], preds[6]])
     p1 = p0 - d * l1 * 0.5
@@ -56,7 +56,7 @@ def get_flange_features(preds):
         
     
 def get_elbow_features(preds):
-    r = preds[0]
+    r = (preds[0])
     p1 = np.array([preds[3], preds[4], preds[5]])
     d1 = norm_array(np.array(get_direction_from_trig(preds, 8)))
     p2, p2a,  p2b = generate_elbow_cloud(preds, return_elbow_edge=True)
@@ -101,10 +101,9 @@ def get_features_from_params(path, dataset):
                     params = get_flange_features(original_pred)
                 elif cl == 'pipe':
                     params = get_pipe_features(original_pred)
-                #print(cl, params)
 
                 node_dict[str(element_id)] = params
-        print(len(node_dict.keys()))
+        print("cl", cl, len(node_dict.keys()))
 
     return (node_dict)
 
@@ -147,6 +146,7 @@ def get_node_features(nodes, path, dataset, additional_features):
     # sort all the features in the order of the original node list
     labels = np.array([i[0] for i in nodes[0]])
     element_ids = np.array([i[4] for i in nodes[0]])
+    print(len(element_ids))
     sorted_features = {}
     keys = ['r1', 'r2', 'r3', 'p1', 'p2', 'p3', 'd1', 'd2', 'd3']
     for key in keys:
@@ -163,7 +163,7 @@ def get_node_features(nodes, path, dataset, additional_features):
         
     feature_list = feature_list + additional_features
     
-    print(len(feature_list))
+    print(len(feature_list), len(feature_list[0]))
     #print("missing", len(missing_keys), missing_keys[0])
     return (torch.from_numpy(np.column_stack(feature_list)))
     
