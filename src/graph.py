@@ -312,3 +312,19 @@ def process_edges(ifc, nodes, rels):
                         
     print(error_count, len(edges))
     return (edges)
+
+
+def get_edges_from_node_info(node):
+    c = np.array(node[1])
+    l = max(node[2])/2
+    d = np.array(node[3])
+
+    return ((c+l*d), (c-l*d))
+
+
+def get_edges_from_node_info_np(node):
+    c = node[1:4]
+    l = max(node[4:7])/2
+    d = node[7:10]
+
+    return ((c+l*d), (c-l*d))
