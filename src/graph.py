@@ -3,6 +3,7 @@
 from ifcopenshell.util.selector import Selector
 from tqdm import tqdm_notebook as tqdm
 import pickle
+import itertools
 import numpy as np
 
 # graph 
@@ -166,18 +167,54 @@ def get_node_features(nodes, path, dataset, additional_features):
     print(len(feature_list), len(feature_list[0]))
     #print("missing", len(missing_keys), missing_keys[0])
     return (torch.from_numpy(np.column_stack(feature_list)))
+
+
+
+def get_edge_feature(edge_data):
+    edges = [e[0] for e in edge_data]
+    edges = np.array(edges)
+    print(len(edges))
     
+    feats = [e[1] for e in edge_data]
+    for i, f in enumerate(feats):
+        strng = ""
+        for k in f:
+            if k == 4: # replace bend with elbow
+                strng += str(1)
+            else:
+                strng += str(k)
+        feats[i] = strng
+        
+    error_count = 0
+    element_types = ['0', '1', '2', '3', '00', '01', '02', '03', '11', '12', '13', '22', '23', '33', 'x']
+    
+    type_feat = []
+    for i, f in enumerate(feats):
+        if len(f) > 2:
+            type_feat.append(element_types.index('x'))
+        elif f in element_types:
+            type_feat.append(element_types.index(f))
+        elif f[::-1] in element_types:
+            type_feat.append(element_types.index(f[::-1]))
+        else:
+            raise Exception("category not found")
+            #error_count += 1
+            
+    #print(type_feat, len(type_feat))
+    #print("edge errors", error_count)           
+    return edges, type_feat
     
     
 # define industrial facility graph dataset
 class IndustrialFacilityDataset(DGLDataset):
 
-    def __init__(self, data_path, site="westdeckbox", element_params=False, params_path=None, dataset='west'):
+    def __init__(self, data_path, site="westdeckbox", element_params=False, params_path=None, dataset='west', bidirectional=True):
         self.site= site
         self.data_path = data_path
         self.element_params = element_params
         self.params_path = params_path
         self.dataset = dataset
+        self.bidirectional = bidirectional
         super().__init__(name='industrial_facility')
 
 
@@ -201,8 +238,8 @@ class IndustrialFacilityDataset(DGLDataset):
         # node features
         if self.element_params:
             # derive noad features from predicted parameters
-            #features = get_node_features(node_info, self.params_path, self.dataset, [])
-            features = get_node_features(node_info, self.params_path, self.dataset, [centers, lengths])
+            features = get_node_features(node_info, self.params_path, self.dataset, [])
+            #features = get_node_features(node_info, self.params_path, self.dataset, [centers, lengths])
         
         else:
             features = torch.from_numpy(np.column_stack((labels, centers, lengths, directions)))
@@ -216,8 +253,93 @@ class IndustrialFacilityDataset(DGLDataset):
         edges_dst = torch.from_numpy(edges[:,1])
 
         # create graph
-        self.graph = dgl.to_bidirected(dgl.graph((edges_src, edges_dst), num_nodes = len(node_info[0])))
+        self.graph = dgl.graph((edges_src, edges_dst), num_nodes = len(node_info[0]))
         self.graph.ndata['feat'] = features
+
+        if self.bidirectional:
+            self.graph = dgl.to_bidirected()
+
+
+    def __getitem__(self, i):
+        return self.graph
+
+    def __len__(self):
+        return 1
+    
+    
+
+    
+# define industrial facility graph dataset
+class IndustrialPipeDataset(DGLDataset):
+
+    def __init__(self, data_path, pipe_path, site="westdeckbox", element_params=False, params_path=None, dataset='west', bidirectional=True, edge_types = True):
+        self.site= site
+        self.data_path = data_path
+        self.pipe_path = pipe_path
+        self.element_params = element_params
+        self.params_path = params_path
+        self.dataset = dataset
+        self.bidirectional = bidirectional
+        self.edge_types = edge_types
+        super().__init__(name='industrial_facility')
+
+
+    def process(self):
+        # data loading
+        #data_path = "/content/drive/MyDrive/graph/"
+        #data_path = '../'
+        edge_file = "pipe_edges_" + self.dataset + ".pkl"
+        node_file = "nodes_" + self.site + ".pkl"
+        with open(self.data_path + node_file, 'rb') as f:
+            node_info = pickle.load(f)
+        with open(self.pipe_path + edge_file, 'rb') as f:
+            raw_edges = pickle.load(f)
+            
+        # filter out non-pipe nodes and recode edges with new edge indices
+        pipe_indices = [i for i, ni in enumerate(node_info[0]) if ni[0]==3]
+        node_info0 = [ni for i, ni in enumerate(node_info[0]) if ni[0]==3]
+        node_info1 = [node_info[1][i] for i, ni in enumerate(node_info[0]) if ni[0]==3]
+        node_info = [node_info0, node_info1]
+        
+        edge_data = []
+        for e in raw_edges:
+            e0 = pipe_indices.index(e[0][0])
+            e1 = pipe_indices.index(e[0][1])
+            edge_data.append(((e0, e1), e[1]))
+         
+        # derive node features using bboxes
+        #labels = np.array([i[0] for i in node_info[0]])
+        centers = np.array([i[1] for i in node_info[0]])
+        lengths = np.array([i[2] for i in node_info[0]])
+        directions = np.array([i[3] for i in node_info[0]])
+               
+        # node features
+        if self.element_params:
+            # derive node features from predicted parameters
+            features = get_node_features(node_info, self.params_path, self.dataset, [])
+        
+        else:
+            features = torch.from_numpy(np.column_stack((centers, lengths, directions)))
+
+        print("features", features.shape)
+        
+        # edges
+        edges, edge_feat = get_edge_feature(edge_data)
+        edges = np.array(edges)
+        print(len(edges))
+        edges_src = torch.from_numpy(edges[:,0])
+        edges_dst = torch.from_numpy(edges[:,1])
+        
+        # create graph
+        self.graph = dgl.graph((edges_src, edges_dst), num_nodes = len(node_info[0]))
+        self.graph.ndata['feat'] = features
+        
+        if self.edge_types:
+            edge_feat = torch.Tensor(edge_feat)
+            self.graph.edata['type'] = edge_feat
+
+        if self.bidirectional:
+            self.graph = dgl.to_bidirected()
 
 
     def __getitem__(self, i):

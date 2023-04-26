@@ -255,7 +255,7 @@ def draw_bbox(bbox, center, ifc, floor, owner_history, context):
 def draw_cylinder(p1, p2, radius, colour,  element_name1, element_name2,
                   ifc, floor, owner_history, context):
     sectionC1 = Circle_Section(r=radius, ifcfile=ifc, vis_only=True)
-    print(p1, p2, radius)
+    #print(p1, p2, radius)
     name = 'rel '+element_name1 + ' x ' + element_name2
     ConnectingBeam_1 = CreateBeam(ifc, container=floor, name=name,
                                   section=sectionC1,
