@@ -335,7 +335,7 @@ class IndustrialPipeDataset(DGLDataset):
         self.graph.ndata['feat'] = features
         
         if self.edge_types:
-            edge_feat = torch.Tensor(edge_feat)
+            edge_feat = torch.Tensor(edge_feat).to(torch.int64)
             self.graph.edata['type'] = edge_feat
 
         if self.bidirectional:
