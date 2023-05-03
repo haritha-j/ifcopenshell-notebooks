@@ -113,8 +113,15 @@ def refine_cloud(file_path, n_points=1000):
     if len(ind) > n_points:
         #print('l', len(ind))
         sub_ind = rng.choice(len(ind), size=n_points, replace=False)
-        cl = cl.select_by_index(sub_ind)
-    
+        cl = np.asarray(pcd.points)[sub_ind]
+
+    elif len(ind) > 0:
+        sub_ind = rng.choice(len(ind), size=n_points, replace=True)
+        cl = np.asarray(pcd.points)[sub_ind]
+        
+    else:
+        cl = cl.points
+    #cl = cl.select_by_index(sub_ind)
     # o3d.io.write_point_cloud("sync.ply", cl)
     
-    return np.asarray(cl.points)
+    return np.asarray(cl)
