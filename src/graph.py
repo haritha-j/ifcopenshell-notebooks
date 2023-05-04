@@ -101,8 +101,8 @@ def get_features_from_params(path, dataset, cloi):
                 else:
                     element_id = id_metadata[str(class_metadata[str(ids[i])]['id'])]
                 # undo normalisation on predicted parameters
-                #original_pred = pred
                 original_pred = undo_normalisation(ids[i], cl, pred, path, ".pcd", scale_up=False)
+                
                 # tees require an additional level of normalisation since the dataset was 
                 # resampled to avoid issues with capped ends
                 if cl== 'tee':
@@ -140,6 +140,9 @@ def scale_node_features(node_features, factor=250):
     for i in range(element_count):
         for j in range(1, 13):         
                 node_features[i][j] = node_features[i][j] * factor
+        # if ad_feat:
+        #     for j in range(22, 28):         
+        #             node_features[i][j] = node_features[i][j] * factor           
     return node_features
 
 
@@ -186,9 +189,10 @@ def get_node_features(nodes, path, dataset, additional_features, cloi):
         
     feature_list = feature_list + additional_features
     feature_list = np.column_stack(feature_list)
+    #ad_feat = len(additional_features) > 0
     
     if cloi:
-        feature_list = scale_node_features(feature_list, 500)
+        feature_list = scale_node_features(feature_list, 1000)
     
     print(len(feature_list), len(feature_list[0]))
     #print("missing", len(missing_keys), missing_keys[0])
