@@ -154,9 +154,10 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
                                                      blueprint, visualize=True)
                 v_modified, _ = visualize_predictions([None, None, cloud[i].transpose(1,0).tolist()], cat, [scaled_preds[i]], 
                                                       blueprint, visualize=True)
-                #visualisers.append(v_orignal)
+                visualisers.append(v_orignal)
                 visualisers.append(v_modified)
             except:
+                print("error", i)
                 error_count += 1
                 v_orignal, _ = visualize_predictions([cloud[i].transpose(1,0).tolist(), gen_cloud[i].tolist()], cat, [], 
                                                      blueprint, visualize=True)
