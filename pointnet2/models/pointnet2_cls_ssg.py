@@ -47,7 +47,7 @@ class get_loss(nn.Module):
     def forward(self, pred, target, trans_feat, points, cat):
         loss = nn.MSELoss()
         total_loss = loss(pred, target)
-        chamfer_scale = 0.00005
+        chamfer_scale = 0.0005
         #chamfer_loss = get_chamfer_loss_tensor(pred, points, cat) * chamfer_scale
         chamfer_loss = get_chamfer_loss_from_param_tensor(pred, target, cat) * chamfer_scale
 

@@ -72,7 +72,7 @@ def plot_single_parameter_error(labels_list, preds_list, k, param_type, label, r
 def plot_parameter_errors(labels_list, preds_list, cat):
     if cat == 'pipe':
         plot_single_parameter_error(labels_list, preds_list, 0, 'dimension', 'radius')
-        plot_single_parameter_error(labels_list, preds_list, 1, 'dimension', 'length')
+        #plot_single_parameter_error(labels_list, preds_list, 1, 'dimension', 'length')
         plot_single_parameter_error(labels_list, preds_list, 2, 'position', 'position', radius_index=0)
         plot_single_parameter_error(labels_list, preds_list, 5, 'direction', 'axis')
     elif cat == 'flange':

@@ -76,12 +76,9 @@ def element_distance(element1, element2, ifc):
     return np.min(distance.cdist(points1, points2, 'sqeuclidean'))
 
 
-# get bounding box of ifc element
-def get_oriented_bbox(element):
-    shape = element.Representation.Representations[0].Items[0]
-    element_coords = np.array(shape.Coordinates.CoordList)
-    #print(element_coords)
-    bbox = oriented_bounding_box_numpy(element_coords)
+# get bounding box of point cloud
+def get_oriented_bbox_from_points(points):
+    bbox = oriented_bounding_box_numpy(points)
     
     # identify box orientation
     l1 = math.sqrt(sq_distance(bbox[0][0], bbox[0][1], bbox[0][2],
@@ -112,6 +109,13 @@ def get_oriented_bbox(element):
     #print(center)
     return([dominant_direction, max(half_lengths), 
            half_lengths, center])
+
+
+# get bounding box of ifc element
+def get_oriented_bbox(element):
+    shape = element.Representation.Representations[0].Items[0]
+    points = np.array(shape.Coordinates.CoordList)   
+    return get_oriented_bbox_from_points(points)
 
 
 # get center, dimensions and direction element points (used for graph dataset)
