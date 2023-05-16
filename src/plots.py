@@ -43,7 +43,10 @@ def plot_single_parameter_error(labels_list, preds_list, k, param_type, label, r
             pred = get_direction_from_trig(pr, k) 
             y = get_direction_from_trig(labels_list[i], k)
             try:
-                errors.append(math.degrees(math.acos(np.dot(pred, y))))
+                dev = math.degrees(math.acos(min(0.999, np.dot(pred, y))))
+                if dev > 90:
+                    dev = 180 - dev
+                errors.append(dev)
             except:
                 error_count += 1
             

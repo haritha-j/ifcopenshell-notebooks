@@ -16,6 +16,17 @@ def uniform_triangle(u, v):
         yield p
 
 
+# add unifrom random noise to pointcloud
+def add_noise(cl, noise_size, rng):
+    min_point = [min(cl[:,i]) for i in range(3)]
+    max_point = [max(cl[:,i]) for i in range(3)]
+    
+    noise = np.column_stack([rng.uniform(min_point[i], max_point[i], noise_size) for i in range(3)])
+    noisy_points = np.vstack([cl[:len(cl)-noise_size], noise])
+    
+    return noisy_points
+
+
 def farthest_point_sample(point, npoint):
     """
     Input:

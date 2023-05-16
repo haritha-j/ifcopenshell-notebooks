@@ -16,12 +16,12 @@ import argparse
 import torch.nn as nn
 
 from pathlib import Path
-from tqdm import tqdm
 
 from src.preparation import *
 from src.dataset import *
 from src.chamfer import get_chamfer_loss_from_param_tensor
 
+from tqdm import tqdm
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.join(BASE_DIR, 'pointnet2')
@@ -88,7 +88,7 @@ def main(args):
     '''HYPER PARAMETER'''
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-    path = Path('output/')
+    path = Path('output/noisy/')
     #savepath = '/content/drive/MyDrive/ElementNet/'
     savepath = 'models/'
     train_transforms = transforms.Compose([
@@ -97,7 +97,7 @@ def main(args):
                     ToTensor()
                     ])
 
-    cat = 'flange'
+    cat = 'pipe'
     train_ds = PointCloudData(path, category=cat, transform=train_transforms)
     valid_ds = PointCloudData(path, valid=True, folder='test', category=cat, transform=train_transforms)
     targets = train_ds.targets

@@ -32,7 +32,7 @@ def get_direction_from_trig(preds, k):
         math.atan2(preds[k+4], preds[k+5])]  
 
 
-# reover axis direction from 2 position values starting from index k, j
+# recover axis direction from 2 position values starting from index k, j
 def get_direction_from_position(preds, k, j):
     dir = [(preds[k] - preds[j]), (preds[k+1] - preds[j+1]), (preds[k+2] - preds[j+2])]
     return vector_normalise(dir)
