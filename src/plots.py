@@ -19,7 +19,7 @@ def plot_error_graph(data, label, x="Bi-directional chamfer loss (m) (2048 point
     fig = plt.figure(figsize=(12,4))
     steps = 250
     if max_val is None:
-        n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,filtered_data[0],(filtered_data[0] - 0)/steps))
+        n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,filtered_data[0],(filtered_data[0] - 0)/steps), color='#ff7070')
     else:
         n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,max_val,(max_val - 0)/steps), color='#ff7070')
     mid = 0.5*(bins[1:] + bins[:-1])
@@ -43,7 +43,7 @@ def plot_single_parameter_error(labels_list, preds_list, k, param_type, label, r
             pred = get_direction_from_trig(pr, k) 
             y = get_direction_from_trig(labels_list[i], k)
             try:
-                dev = math.degrees(math.acos(min(0.999, np.dot(pred, y))))
+                dev = math.degrees(math.acos(np.dot(pred, y)))
                 if dev > 90:
                     dev = 180 - dev
                 errors.append(dev)
