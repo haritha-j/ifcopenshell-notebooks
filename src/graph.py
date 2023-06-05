@@ -368,7 +368,7 @@ class IndustrialPipeDataset(DGLDataset):
 
         if self.bidirectional:
             self.graph = dgl.to_bidirected(self.graph)
-        
+       
         self.graph.ndata['feat'] = features
 
 
@@ -475,8 +475,4 @@ def get_edges_from_node_info(node):
 
 
 def get_edges_from_node_info_np(node):
-    c = node[1:4]
-    l = max(node[4:7])/2
-    d = node[7:10]
-
-    return ((c+l*d), (c-l*d))
+    return (node[4:7], node[7:10])

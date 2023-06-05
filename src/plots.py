@@ -6,7 +6,7 @@ from src.visualisation import get_direction_from_trig
 from src.geometry import sq_distance
 
 
-def plot_error_graph(data, label, x="Bi-directional chamfer loss (m) (2048 points)", y="No. of elements", max_val=None):
+def plot_error_graph(data, label, x="Bi-directional chamfer loss (m) (2048 points)", y="No. of elements", max_val=None, negative=False):
     # filter top 99% to remove outliers
     sorted_data = np.sort(data)[::-1]
     cap = int(len(data)/100)
@@ -19,7 +19,10 @@ def plot_error_graph(data, label, x="Bi-directional chamfer loss (m) (2048 point
     fig = plt.figure(figsize=(12,4))
     steps = 250
     if max_val is None:
-        n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,filtered_data[0],(filtered_data[0] - 0)/steps), color='#ff7070')
+        if negative:
+            n, bins, _ = plt.hist(filtered_data, bins=np.arange(filtered_data[-1],filtered_data[0],(filtered_data[0] - filtered_data[-1])/steps), color='#ff7070')
+        else:
+            n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,filtered_data[0],(filtered_data[0] - 0)/steps), color='#ff7070')
     else:
         n, bins, _ = plt.hist(filtered_data, bins=np.arange(0,max_val,(max_val - 0)/steps), color='#ff7070')
     mid = 0.5*(bins[1:] + bins[:-1])
