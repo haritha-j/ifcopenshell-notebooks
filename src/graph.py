@@ -105,8 +105,10 @@ def get_features_from_params(path, dataset, cloi):
                 
                 # tees require an additional level of normalisation since the dataset was 
                 # resampled to avoid issues with capped ends
+                original_pred = bp_tee_correction(original_pred, class_metadata[str(ids[i])], cl)
+
                 if cl== 'tee':
-                    original_pred = bp_tee_correction(original_pred, class_metadata[str(ids[i])], cl)
+                    #original_pred = bp_tee_correction(original_pred, class_metadata[str(ids[i])], cl)
                     params = get_tee_features(original_pred)
                 elif cl == 'elbow' or cl == 'bend':
                     params = get_elbow_features(original_pred)
@@ -178,6 +180,7 @@ def get_node_features(nodes, path, dataset, additional_features, cloi):
     for key in keys:
         sorted_features[key] =[]
             
+    print("element id length", len(element_ids), len(node_features))
     for i, element_id in enumerate(element_ids):
         nf = node_features[str(element_id)]
         for key in keys:
@@ -476,3 +479,5 @@ def get_edges_from_node_info(node):
 
 def get_edges_from_node_info_np(node):
     return (node[4:7], node[7:10])
+
+

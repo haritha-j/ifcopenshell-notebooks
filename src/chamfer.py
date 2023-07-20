@@ -744,8 +744,9 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
     return bidirectional_dist
 
 
+# delta is the constant for robust kernel
 # alpha determines the weighting of bidirectional chamfer loss
-def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0, return_cloud=False):
+def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0, return_cloud=False, robust=None, delta=0.1):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     
     if cat == "elbow":
@@ -762,16 +763,21 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
     chamferDist = ChamferDistance()
     if reduce:
         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
-                                         alpha=alpha)
+                                         alpha=alpha, robust=robust, delta=delta)
+#         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
+#                                          alpha=alpha)
     else:
         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
-                                         reduction=None, alpha=alpha)
+                                         reduction=None, alpha=alpha, robust=robust, delta=delta)
+#         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
+#                                          reduction=None, alpha=alpha)
     #t3 = time.perf_counter()
     #print("cloud", t2-t1, "chamf", t3-t2)
     if return_cloud:
         return bidirectional_dist, target_pcd_tensor
     else:
         return bidirectional_dist
+
 
 
 def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):

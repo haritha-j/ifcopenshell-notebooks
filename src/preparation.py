@@ -135,9 +135,10 @@ def synthetic_dataset(config, sample_size, element_class, output_base, blueprint
         json.dump(metadata, f)
         
 
-def create_merged_dataset(pcd_path, output_base, element_class, num_scans, density, num_views=3, test_split=0.1, uniform_sampling=False):
+def create_merged_dataset(pcd_path, output_base, element_class, num_scans, density, num_views=3, test_split=0.1, uniform_sampling=False, multiple=True):
     # load data
     metadata_file = os.path.join(output_base, element_class, 'metadata.json')
+    print(metadata_file)
     f = open(metadata_file, 'r')
     metadata = json.load(f)
     
@@ -147,15 +148,21 @@ def create_merged_dataset(pcd_path, output_base, element_class, num_scans, densi
         element = int(sc.split('_')[0])
         unique_files.add(element)
     
+    if multiple:
+        it_range = num_scans - num_views
+    else:
+        it_range = 1
+            
     # merge multiple views
     count = 0
     metadata_new = {}
     train_clouds = {}
     test_clouds = {}
     test_point = int(len(unique_files)*(1-test_split))
-    print(test_point, len(unique_files))
+    print(test_point, len(unique_files), sorted(unique_files))
+    
     for k, un in enumerate(tqdm(unique_files)):
-        for i in range(num_scans-num_views):
+        for i in range(it_range):
             points = []
             for j in range(num_views):
                 file_path = os.path.join(pcd_path, (str(un) + '_' + str(i+j) + '.pcd'))
