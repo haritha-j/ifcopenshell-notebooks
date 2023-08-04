@@ -90,7 +90,8 @@ def elbow_correction(n_iter, step_size, modified_preds, cloud, blueprint, gen_cl
 
 
 # multi element Adam with single loss
-def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0, visualise=True, elbow_fix=True, robust=None, delta=0.1):
+def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0, visualise=True, elbow_fix=True, robust=None, 
+                      delta=0.1, bidirectional_robust=True):
     # prepare data on gpu and setup optimiser
     cuda = torch.device('cuda')
     preds_copy = copy.deepcopy(preds)
@@ -117,7 +118,8 @@ def chamfer_fine_tune(n_iter, step_size, preds, cloud, cat, blueprint, alpha=1.0
     # iterative refinement with adam
     for i in tqdm(range (n_iter)):
         optimiser.zero_grad()
-        chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat, alpha=alpha, robust=robust, delta=delta)
+        chamfer_loss = get_chamfer_loss_tensor(preds_t, cloud_t, cat, alpha=alpha, robust=robust, delta=delta, 
+                                               bidirectional_robust=bidirectional_robust)
         chamfer_loss.backward()
         optimiser.step()
         if not elbow_fix:

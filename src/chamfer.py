@@ -746,7 +746,8 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
 
 # delta is the constant for robust kernel
 # alpha determines the weighting of bidirectional chamfer loss
-def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0, return_cloud=False, robust=None, delta=0.1):
+def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0, return_cloud=False, 
+                            robust=None, delta=0.1, bidirectional_robust=True):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     
     if cat == "elbow":
@@ -754,7 +755,7 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
     elif cat == "pipe":
         target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
     elif cat == "tee":
-        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=True)
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
     elif cat == "flange":
         target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
     elif cat == "socket":
@@ -763,12 +764,14 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
     chamferDist = ChamferDistance()
     if reduce:
         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
-                                         alpha=alpha, robust=robust, delta=delta)
+                                         alpha=alpha, robust=robust, delta=delta,
+                                         bidirectional_robust=bidirectional_robust)
 #         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
 #                                          alpha=alpha)
     else:
         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
-                                         reduction=None, alpha=alpha, robust=robust, delta=delta)
+                                         reduction=None, alpha=alpha, robust=robust, delta=delta,
+                                         bidirectional_robust=bidirectional_robust)
 #         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
 #                                          reduction=None, alpha=alpha)
     #t3 = time.perf_counter()

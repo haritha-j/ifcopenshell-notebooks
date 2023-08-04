@@ -6,8 +6,11 @@ new_file = ifcopenshell.file(schema='IFC4')
 
 
 old_files = list(map(ifcopenshell.open, [
-    "../../merged_full.ifc",
-        "../../deckboxbend.ifc"
+    "/mnt/c/data/3D_CAD/deckboxbend.ifc",
+    "/mnt/c/data/3D_CAD/deckboxflange.ifc",
+    # "/mnt/c/data/3D_CAD/deckboxelbow_ref.ifc",
+    # "/mnt/c/data/3D_CAD/deckboxtube_ref.ifc",
+    # "/mnt/c/data/3D_CAD/deckboxtee_ref.ifc"
 ]))
 
 error_count = 0
@@ -37,4 +40,4 @@ for p in projects[1:]:
     # Remove from file
     new_file.remove(p)
 
-new_file.write("../../merged.ifc")
+new_file.write("../merged_test.ifc")

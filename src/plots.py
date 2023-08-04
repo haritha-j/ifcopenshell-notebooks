@@ -55,7 +55,7 @@ def plot_single_parameter_error(labels_list, preds_list, k, param_type, label, r
             
         elif param_type == 'dimension':
             deviation = abs(pr[k] -  labels_list[i][k])
-            errors.append(deviation / labels_list[i][k])
+            errors.append(deviation / abs(labels_list[i][k]))
                                         
         elif param_type == 'angle':
             pred = math.degrees(math.atan2(pr[k], pr[k+1]))

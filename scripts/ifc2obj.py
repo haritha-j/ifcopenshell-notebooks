@@ -14,6 +14,7 @@ if __name__ == '__main__':
 
 
     files = os.listdir(args.input_dir)
+    metadata_path = args.output_dir + "occluded.json"
 
     for f in files:
         print(f)
