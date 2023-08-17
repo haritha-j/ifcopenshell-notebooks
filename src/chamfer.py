@@ -713,7 +713,7 @@ def get_chamfer_dist_single(src, preds, cat):
     elif cat == "tee":
         tgt = generate_tee_cloud(preds)
     src, tgt = torch.tensor(np.expand_dims(src, axis=0)).cuda().float(), torch.tensor(np.expand_dims(tgt, axis=0)).cuda().float()
-    
+
     chamferDist = ChamferDistance()
     bidirectional_dist = chamferDist(src, tgt, bidirectional=True)
     return bidirectional_dist.detach().cpu().item(), tgt
@@ -746,10 +746,11 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
 
 # delta is the constant for robust kernel
 # alpha determines the weighting of bidirectional chamfer loss
+# this method compares an input point cloud, with cloud generated from predicted params
 def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alpha=1.0, return_cloud=False, 
                             robust=None, delta=0.1, bidirectional_robust=True):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
-    
+
     if cat == "elbow":
         target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
     elif cat == "pipe":
@@ -782,9 +783,9 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
         return bidirectional_dist
 
 
-
+# this method compares the cloud generated from input params with the cloud generated from predicted params
 def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):
-    
+
     if cat == "elbow":
         target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
         src_pcd_tensor = generate_elbow_cloud_tensor(src_tensor)
@@ -804,3 +805,13 @@ def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):
     return bidirectional_dist
 
 
+# this method compares an input point cloud, with a second point cloud
+def get_cloud_chamfer_loss_tensor(src_pcd_tensor, tgt_pcd_tensor, alpha=1.0,
+                            robust=None, delta=0.1, bidirectional_robust=True):
+    src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
+    tgt_pcd_tensor = tgt_pcd_tensor.transpose(2, 1)
+
+    chamferDist = ChamferDistance()
+    bidirectional_dist = chamferDist(tgt_pcd_tensor, src_pcd_tensor, bidirectional=True, reduction=None)
+
+    return bidirectional_dist
