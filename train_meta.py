@@ -21,6 +21,7 @@ from pathlib import Path
 from src.preparation import *
 from src.dataset import *
 from src.chamfer import get_cloud_chamfer_loss_tensor
+from src.meta import get_rand_rotations
 
 from itertools import chain
 
@@ -38,11 +39,11 @@ def parse_args():
     parser.add_argument('--gpu', type=str, default='0', help='specify gpu device')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size in training')
     parser.add_argument('--model', default='pointnet2_meta_ssg', help='model name [default: pointnet2_meta_ssg]')
-    parser.add_argument('--epoch', default=200, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=100, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='learning rate in training')
     parser.add_argument('--num_point', type=int, default=2048, help='Point Number')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer for training')
-    parser.add_argument('--log_dir', type=str, default=None, help='experiment root')
+    parser.add_argument('--log_dir', type=str, default="meta", help='experiment root')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--use_normals', action='store_true', default=False, help='use normals')
     parser.add_argument('--process_data', action='store_true', default=False, help='save data offline')
@@ -57,6 +58,8 @@ def inplace_relu(m):
 
 def test(model, model_fcn, loader, device, criterion):
     losses = []
+    batch_losses = []
+    batch_chamfer_losses = []
     predictor = model.eval()
     fcn_predictor = model_fcn.eval()
 
@@ -64,9 +67,7 @@ def test(model, model_fcn, loader, device, criterion):
         points, target = data['pointcloud'].to(device).float(), data['properties'].to(device)
 
         # perform rotation
-        rand_rot = trnsfrm.random_rotations(points.shape[0], device=device)
-        # TODO: should some zero transforms be included?
-        #print("rr", rand_rot.shape)
+        rand_rot = get_rand_rotations(points.shape[0], device=device)
         trans = trnsfrm.Rotate(rand_rot)
         points_transformed = trans.transform_points(points)
 
@@ -77,15 +78,24 @@ def test(model, model_fcn, loader, device, criterion):
         pred, _ = predictor(points)
         pred_trans, _ = predictor(points_transformed)
         pred_combined = torch.cat([pred, pred_trans], 1)
-        predicted_loss= torch.flatten(fcn_predictor(pred_combined))
+        predicted_loss= fcn_predictor(pred_combined)
 
-        chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_transformed)
+        chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_transformed,
+                                                     separate_directions=True)
         loss = criterion(predicted_loss, chamfer_loss)
 
-        losses.append(loss)
+        batch_loss = torch.sqrt(loss*chamfer_loss.shape[0])/chamfer_loss.shape[0]
+        batch_chamfer_loss = sum(chamfer_loss[0]+chamfer_loss[1])/(len(chamfer_loss)*2)
 
-    avg_loss = sum(losses)/len(losses)
-    return avg_loss
+        losses.append(loss)
+        batch_losses.append(batch_loss)
+        batch_chamfer_losses.append(batch_chamfer_loss)
+
+    avg_loss = sum(batch_losses)/len(batch_losses)
+    avg_chamfer_loss = sum(batch_chamfer_losses)/len(batch_chamfer_losses)
+    avg_loss_ratio = avg_loss/avg_chamfer_loss
+    print("avg error ratio",avg_loss_ratio )
+    return avg_loss, avg_loss_ratio
 
 
 def _make_dir(exp_dir):
@@ -126,8 +136,6 @@ def main(args):
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
     exp_dir = Path('pointnet2/log/')
     _make_dir(exp_dir)
-    exp_dir = exp_dir.joinpath('meta')
-    _make_dir(exp_dir)
     if args.log_dir is None:
         exp_dir = exp_dir.joinpath(timestr)
     else:
@@ -135,6 +143,7 @@ def main(args):
     _make_dir(exp_dir)
     checkpoints_dir = exp_dir.joinpath('checkpoints/')
     _make_dir(checkpoints_dir)
+    print("chk", checkpoints_dir)
     log_dir = exp_dir.joinpath('logs/')
     _make_dir(log_dir)
 
@@ -156,9 +165,9 @@ def main(args):
     shutil.copy('./train_classification.py', str(exp_dir))
 
     fcn_model = importlib.import_module('fcn')
-    fcn_predictor = fcn_model.get_model(1)
-    
-    predictor = model.get_model(targets, normal_channel=args.use_normals)
+    fcn_predictor = fcn_model.get_model(2)
+
+    predictor = model.get_model(normal_channel=args.use_normals)
     criterion = model.get_loss()
     predictor.apply(inplace_relu)
 
@@ -171,7 +180,6 @@ def main(args):
         checkpoint = torch.load(str(exp_dir) + '/checkpoints/best_model.pth')
         start_epoch = checkpoint['epoch']
         checkpoint_fcn = torch.load(str(exp_dir) + '/checkpoints/best_model_fcn.pth')
-        start_epoch_fcn = checkpoint['epoch']
         predictor.load_state_dict(checkpoint['model_state_dict'])
         fcn_predictor.load_state_dict(checkpoint_fcn['model_state_dict'])
         log_string('Use pretrain model')
@@ -210,9 +218,7 @@ def main(args):
             points, target = data['pointcloud'].to(device).float(), data['properties'].to(device)
 
             # perform rotation
-            rand_rot = trnsfrm.random_rotations(points.shape[0], device=device)
-            # TODO: should some zero transforms be included?
-            #print("rr", rand_rot.shape)
+            rand_rot = get_rand_rotations(points.shape[0], device=device)
             trans = trnsfrm.Rotate(rand_rot)
             points_transformed = trans.transform_points(points)
 
@@ -223,7 +229,7 @@ def main(args):
             pred, _ = predictor(points)
             pred_trans, _ = predictor(points_transformed)
             pred_combined = torch.cat([pred, pred_trans], 1)
-            predicted_loss= torch.flatten(fcn_predictor(pred_combined))
+            predicted_loss = fcn_predictor(pred_combined)
 
             loss = criterion(predicted_loss, points, points_transformed)
 
@@ -235,7 +241,7 @@ def main(args):
         log_string('Train loss: %f' % loss)
 
         with torch.no_grad():
-            loss = test(predictor.eval(), fcn_predictor.eval(), testDataLoader,
+            loss, avg_loss_ratio = test(predictor.eval(), fcn_predictor.eval(), testDataLoader,
                         device, test_criterion)
 
             if (loss <= best_loss):
@@ -252,10 +258,21 @@ def main(args):
                 state = {
                     'epoch': best_epoch,
                     'loss': loss,
+                    'avg_loss_ratio': avg_loss_ratio,
+                    'ratio': loss,
                     'model_state_dict': predictor.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                 }
                 torch.save(state, savepath)
+                savepath_fcn = str(checkpoints_dir) + '/best_model_fcn.pth'
+                log_string('Saving at %s' % savepath)
+                state = {
+                    'epoch': best_epoch,
+                    'loss': loss,
+                    'model_state_dict': fcn_predictor.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                }
+                torch.save(state, savepath_fcn)
             global_epoch += 1
 
     logger.info('End of training...')

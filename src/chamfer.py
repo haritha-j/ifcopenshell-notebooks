@@ -806,12 +806,16 @@ def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):
 
 
 # this method compares an input point cloud, with a second point cloud
-def get_cloud_chamfer_loss_tensor(src_pcd_tensor, tgt_pcd_tensor, alpha=1.0,
+def get_cloud_chamfer_loss_tensor(src_pcd_tensor, tgt_pcd_tensor, alpha=1.0, separate_directions=False,
                             robust=None, delta=0.1, bidirectional_robust=True):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     tgt_pcd_tensor = tgt_pcd_tensor.transpose(2, 1)
 
     chamferDist = ChamferDistance()
-    bidirectional_dist = chamferDist(tgt_pcd_tensor, src_pcd_tensor, bidirectional=True, reduction=None)
+    bidirectional_dist = chamferDist(tgt_pcd_tensor, src_pcd_tensor, bidirectional=True, reduction=None,
+                                     separate_directions=separate_directions)
+    if separate_directions == True:
+        bidirectional_dist = torch.cat([torch.unsqueeze(bidirectional_dist[0], dim=-1),
+                                        torch.unsqueeze(bidirectional_dist[1], dim=-1)], 1)
 
     return bidirectional_dist
