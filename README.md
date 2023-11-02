@@ -22,3 +22,30 @@ Additionally, scripts for exctracting facility structure from NWD files (*total.
 Source code for processing ifc geometry, graphs, point clouds, industrial facility structure and visualisation are available in the *src* folder.
 
 This repository is dependent on a custom version of [chamferdist](https://github.com/haritha-j/chamferdist)
+
+
+### Dataset 
+
+The dataset is available [here](https://drive.google.com/file/d/14MYRz4-1RuoHHstqzGsiybucTb4wpWs6/view?usp=sharing)
+
+
+This dataset consists of two sub-sections.
+1. Synthetic dataset
+2. Industrial facility dataset
+
+Point clouds for each dataset are available in both regular occclusion (3 camera viewpoints) and high occlusion (2 camera viewpoints) variants.
+
+The datasets contain pipe, elbow, flange and tee classes.
+
+
+##### Synthetic dataset
+
+clouds sampled from 4000+ synthetically generated elements for each class. IFC, OBJ and sampled point clouds are available for each element, as well as metadata describing the underlying geoemtric parameters.
+
+
+#### Industrial facility dataset
+
+Point clouds sampled from two subsections of an offshore LNG hub.
+Metadata contains relationship information for piping branches.
+Geometry predictions for all elements from our proposed methods have been included.
+Obj files are also included.
