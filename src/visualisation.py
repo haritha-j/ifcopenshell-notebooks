@@ -7,6 +7,8 @@ from OCC.Core.gp import gp_Pnt
 from utils.JupyterIFCRenderer import JupyterIFCRenderer
 import plotly.graph_objects as go
 import plotly.express as px
+from chamferdist import ChamferDistance
+from pythreejs import LineBasicMaterial, LineSegments2, LineSegmentsGeometry, LineMaterial
 
 from src.geometry import vector_normalise
 from src.elements import *
@@ -51,7 +53,7 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
         "project": project,
        "context": context, 
        "floor": floor}
-    
+
     for preds in preds_list:
         if element == 'pipe':
             pm = {'r':preds[0], 'l':preds[1] }
@@ -59,18 +61,18 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
             pm['p0'] = [preds[2]*1000, preds[3]*1000, preds[4]*1000]
             pm['p'] = [pm['p0'][i] - ((pm['l']*pm['d'][i])/2) for i in range(3)]
             #print(pm)
-            
+
             create_IfcPipe(pm['r'], pm['l'], pm['d'], pm['p'], ifc, ifc_info)
-                    
+
         elif element == 'flange':
             pm = {'r1':preds[0],'r2':preds[1], 'l1':preds[2], 'l2':preds[3] }
             pm['d'] = get_direction_from_trig(preds, 7)
             pm['p0'] = [preds[4]*1000, preds[5]*1000, preds[6]*1000]
             pm['p'] = [pm['p0'][i] - ((pm['l1']*pm['d'][i])) for i in range(3)]
             #print(pm)
-            
+
             create_IfcFlange(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d'], pm['p'], pm['p0'], ifc, ifc_info)
-            
+
         elif element == 'elbow':
             pm = {'r':preds[0], 'x':preds[1], 'y':preds[2]}
 
@@ -78,7 +80,7 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
             pm['axis_dir'] = [math.cos(theta), -1*math.sin(theta)]
             # pm['p'] = [0.0, 0.0, 0.0]
             pm['a'] = math.degrees(math.atan2(preds[6], preds[7]))
-            
+
             pm['p'] = [preds[3]*1000, preds[4]*1000, preds[5]*1000]
             pm['d'] = get_direction_from_trig(preds, 8)
 
@@ -87,20 +89,20 @@ def visualize_predictions(clouds, element, preds_list, blueprint, use_directions
 
             create_IfcElbow(pm['r'], pm['a'], pm['d'], pm['p'], pm['x'],
                             pm['y'], pm['axis_dir'], ifc, ifc_info, z=z)
-            
+
         elif element == 'tee':
             pm = {'r1':preds[0], 'l1':preds[1], 'r2':preds[2],'l2':preds[3]}
             pm['p2'] = [preds[4]*1000, preds[5]*1000, preds[6]*1000]
 
             if use_directions:
-                pm['d1'] = get_direction_from_trig(preds, 7)       
+                pm['d1'] = get_direction_from_trig(preds, 7)
                 pm['d2'] = get_direction_from_trig(preds, 13)
                 pm['p1'] = (np.array(pm['p2']) - (np.array(pm['d1']) * np.array(pm['l1']) * 0.5)).tolist()
             else:
                 pm['d1'] = get_direction_from_position(preds, 7, 4)
                 pm['d2'] = get_direction_from_position(preds, 10, 7)
                 pm['p2'] = [preds[7]*1000, preds[8]*1000, preds[9]*1000]
-            
+
             create_IfcTee(pm['r1'], pm['r2'], pm['l1'], pm['l2'], pm['d1'], 
                         pm['d2'], pm['p1'], pm['p2'], ifc, ifc_info)
 
@@ -158,3 +160,65 @@ def pcshow(xs,ys,zs):
                       color='DarkSlateGrey')),
                       selector=dict(mode='markers'))
     fig.show()
+
+
+# visually show matching points used for chamfer loss
+# currently expects a 1:1mapping between src and tgt points. TODO: use nearest neighbour to enforce this
+def visualise_chamfer_loss(src_preds, tgt_preds, cat, blueprint):
+    idx = 0
+
+    # prepare data on gpu and setup optimiser
+    cuda = torch.device('cuda')
+
+    preds_copy = copy.deepcopy(src_preds)
+    scaled_original_preds = [scale_preds(pc.tolist(), cat) for pc in preds_copy]
+
+    src_preds_t = torch.tensor(src_preds, requires_grad=True, device=cuda)
+    tgt_preds_t = torch.tensor(tgt_preds, requires_grad=True, device=cuda)
+
+    # generate clouds
+    if cat == "elbow":
+        target_pcd_tensor = generate_elbow_cloud_tensor(tgt_preds_t)
+        src_pcd_tensor = generate_elbow_cloud_tensor(src_preds_t)
+    elif cat == "pipe":
+        target_pcd_tensor = generate_pipe_cloud_tensor(tgt_preds_t)
+        src_pcd_tensor = generate_pipe_cloud_tensor(src_preds_t)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(tgt_preds_t, bp=True)
+        src_pcd_tensor = generate_tee_cloud_tensor(src_preds_t, bp=True)
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(tgt_preds_t, disc=True)
+        src_pcd_tensor = generate_flange_cloud_tensor(src_preds_t, disc=True)
+
+    chamferDist = ChamferDistance()
+    bidirectional_nn = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, return_nn=True)
+
+    tgt_pcd = target_pcd_tensor.detach().cpu().numpy()
+    src_pcd = src_pcd_tensor.detach().cpu().numpy()
+
+    tgt_pcd_single, src_pcd_single = tgt_pcd[idx].tolist(), src_pcd[idx].tolist()
+
+    # generate ifc model and visualisation
+    v, _ = visualize_predictions([], cat, [scaled_original_preds[idx]], 
+                                                     blueprint, visualize=True)
+
+    print(v)
+    return (v, src_pcd_single, tgt_pcd_single)
+
+
+# add cloud to visualisation
+def add_cloud(v, cloud, colour="#70ff70"):
+    gp_pnt_list = [gp_Pnt(k[0], k[1], k[2]) for k in cloud]
+    v.DisplayShape(gp_pnt_list, vertex_color=colour)
+
+
+# draw lines connecting src and tgt points
+def add_lines(v, src, tgt):
+    lines= []
+    edge_material = LineBasicMaterial(color="blue", linewidth=3)
+    for i in range (len(tgt)):
+        lines.append(LineSegments2(LineSegmentsGeometry(positions=[[tgt[i], src[i]]]),
+                                   LineMaterial(linewidth=1, color="blue"),
+                                   ))
+
+    v._displayed_non_pickable_objects.add(lines)
