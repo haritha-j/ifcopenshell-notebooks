@@ -129,5 +129,7 @@ dmypy.json
 .pyre/
 
 data/
+output/
+gnn*
 pointnet2/data
 pointnet2/log
