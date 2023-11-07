@@ -761,26 +761,85 @@ def get_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, reduce=True, alph
         target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
     elif cat == "socket":
         target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
-    #t2 = time.perf_counter()
+
     chamferDist = ChamferDistance()
     if reduce:
         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
                                          alpha=alpha, robust=robust, delta=delta,
                                          bidirectional_robust=bidirectional_robust)
-#         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
-#                                          alpha=alpha)
+#
     else:
         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
                                          reduction=None, alpha=alpha, robust=robust, delta=delta,
                                          bidirectional_robust=bidirectional_robust)
-#         bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True, 
-#                                          reduction=None, alpha=alpha)
-    #t3 = time.perf_counter()
-    #print("cloud", t2-t1, "chamf", t3-t2)
+#
     if return_cloud:
         return bidirectional_dist, target_pcd_tensor
     else:
         return bidirectional_dist
+
+
+# compute mahalanobis distance between a set of point clouds and a mixture of gaussians
+# specifically, distance is computed against each gaussian in the mixture, and the minimum distance is used
+def mahalanobis_distance_gmm(target_pcd_tensor, means, covariances, robust=None, delta=0.1):
+    #print("inputs", target_pcd_tensor.shape, means.shape, covariances.shape)
+    # (b, n, 3), (b, 100, 3)
+    dists = torch.zeros((target_pcd_tensor.shape[0], target_pcd_tensor.shape[1], means.shape[1])).cuda()
+
+    # iterate through gaussians in the mixture
+    for g in range(means.shape[1]):
+        # compute mahalanobis distance between the points in the target cloud and the gaussian
+        means_reshaped = means[:, g, :].unsqueeze(1).repeat(1, target_pcd_tensor.shape[1], 1)
+        covariances_inv = torch.inverse(covariances)
+        #print("inv", covariances_inv.shape)
+        covariances_reshaped = covariances_inv[:, g, :, :].unsqueeze(1).repeat(1, target_pcd_tensor.shape[1], 1, 1)
+        #print("reshaped", means_reshaped.shape, covariances_reshaped.shape)
+
+        delta = target_pcd_tensor - means_reshaped
+        #print("delta", delta.shape, torch.matmul(covariances_reshaped, delta.unsqueeze(3)).shape, delta.view(delta.shape[0], delta.shape[1], 1, delta.shape[2]).shape)
+        d = torch.matmul(delta.view(delta.shape[0], delta.shape[1], 1, delta.shape[2]),
+                         torch.matmul(covariances_reshaped, delta.unsqueeze(3)))
+        d = d.squeeze()
+        #print("d", d.shape)
+        dists[:, :, g] = d
+
+    # find minimum distance for each point in the clouds
+    min_dists, _ = torch.min(dists, dim=2)
+    #print("min dists", dists.shape, min_dists.shape, torch.sum(min_dists, dim=1).shape)
+
+    # reduce
+    return torch.sum(min_dists, dim=1)
+
+
+
+def get_mahalanobis_loss_tensor(preds_tensor, means, covariances, cat, return_cloud=False, robust=None, delta=0.1,
+                                chamfer=0, alpha=1, src_pcd_tensor=None):
+    if cat == "elbow":
+        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
+    elif cat == "pipe":
+        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
+    elif cat == "socket":
+        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+
+    dist = mahalanobis_distance_gmm(target_pcd_tensor, means, covariances, robust=robust, delta=delta)
+    dist = torch.sum(dist)
+
+    if chamfer > 0:
+        src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
+        chamferDist = ChamferDistance()
+        bidirectional_dist = chamferDist(target_pcd_tensor, src_pcd_tensor, bidirectional=True,
+                                         robust=robust, delta=delta, alpha=alpha)
+        print(dist, chamfer*bidirectional_dist)
+        dist += chamfer*bidirectional_dist
+
+    if return_cloud:
+        return dist, target_pcd_tensor
+    else:
+        return dist
 
 
 # this method compares the cloud generated from input params with the cloud generated from predicted params
