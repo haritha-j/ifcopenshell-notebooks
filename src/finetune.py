@@ -265,7 +265,8 @@ def mahalanobis_fine_tune(
     elbow_fix=True,
     robust=None,
     delta=0.1,
-    chamfer=0,
+    chamfer=0
+    weights=None,
 ):
     # prepare data on gpu and setup optimiser
     cuda = torch.device("cuda")
@@ -307,6 +308,7 @@ def mahalanobis_fine_tune(
             chamfer=chamfer,
             alpha=alpha,
             src_pcd_tensor=cloud_t,
+            weights=weights,
         )
         mahalanobis_loss.backward()
         optimiser.step()

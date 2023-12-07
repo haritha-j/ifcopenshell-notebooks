@@ -933,7 +933,7 @@ def get_chamfer_loss_tensor(
 # compute mahalanobis distance between a set of point clouds and a mixture of gaussians
 # specifically, distance is computed against each gaussian in the mixture, and the minimum distance is used
 def mahalanobis_distance_gmm(
-    target_pcd_tensor, means, covariances, robust=None, delta=0.1
+    target_pcd_tensor, means, covariances, robust=None, delta=0.1, weights=None
 ):
     # print("inputs", target_pcd_tensor.shape, means.shape, covariances.shape)
     # (b, n, 3), (b, 100, 3)
@@ -956,11 +956,11 @@ def mahalanobis_distance_gmm(
         )
         # print("reshaped", means_reshaped.shape, covariances_reshaped.shape)
 
-        delta = target_pcd_tensor - means_reshaped
-        # print("delta", delta.shape, torch.matmul(covariances_reshaped, delta.unsqueeze(3)).shape, delta.view(delta.shape[0], delta.shape[1], 1, delta.shape[2]).shape)
+        diff = target_pcd_tensor - means_reshaped
+        # print("diff", diff.shape, torch.matmul(covariances_reshaped, dedifflta.unsqueeze(3)).shape, diff.view(diff.shape[0], diff.shape[1], 1, diff.shape[2]).shape)
         d = torch.matmul(
-            delta.view(delta.shape[0], delta.shape[1], 1, delta.shape[2]),
-            torch.matmul(covariances_reshaped, delta.unsqueeze(3)),
+            diff.view(diff.shape[0], diff.shape[1], 1, diff.shape[2]),
+            torch.matmul(covariances_reshaped, diff.unsqueeze(3)),
         )
         d = d.squeeze()
         # print("d", d.shape)
@@ -985,6 +985,7 @@ def get_mahalanobis_loss_tensor(
     chamfer=0,
     alpha=1,
     src_pcd_tensor=None,
+    weights=None,
 ):
     if cat == "elbow":
         target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
@@ -1012,6 +1013,7 @@ def get_mahalanobis_loss_tensor(
             robust=robust,
             delta=delta,
             alpha=alpha,
+            weights = weights,
         )
         print(dist, chamfer * bidirectional_dist)
         dist += chamfer * bidirectional_dist
