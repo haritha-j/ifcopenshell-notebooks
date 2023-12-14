@@ -7,7 +7,7 @@ import math
 import numpy as np
 from tqdm import tqdm_notebook as tqdm
 
-from src.chamfer import get_chamfer_loss_tensor, get_mahalanobis_loss_tensor
+from src.chamfer import *
 from src.visualisation import visualize_predictions
 from src.utils import scale_preds
 
@@ -105,6 +105,8 @@ def elbow_correction(
 
 
 # multi element Adam with single loss
+# set direction weight to finetune with directional chamfer loss
+
 def chamfer_fine_tune(
     n_iter,
     step_size,
@@ -119,6 +121,8 @@ def chamfer_fine_tune(
     delta=0.1,
     bidirectional_robust=True,
     return_intermediate=False,
+    k=1,
+    direction_weight=None
 ):
     # prepare data on gpu and setup optimiser
     cuda = torch.device("cuda")
@@ -152,15 +156,30 @@ def chamfer_fine_tune(
         optimiser.zero_grad()
         if return_intermediate:
             intermediate_results.append(preds_t.clone().detach().cpu().numpy())
-        chamfer_loss = get_chamfer_loss_tensor(
-            preds_t,
-            cloud_t,
-            cat,
-            alpha=alpha,
-            robust=robust,
-            delta=delta,
-            bidirectional_robust=bidirectional_robust,
-        )
+
+        if direction_weight is None:
+            chamfer_loss = get_chamfer_loss_tensor(
+                preds_t,
+                cloud_t,
+                cat,
+                alpha=alpha,
+                robust=robust,
+                delta=delta,
+                bidirectional_robust=bidirectional_robust,
+            )
+        else:
+            chamfer_loss = get_chamfer_loss_directional_tensor(
+                preds_t,
+                cloud_t,
+                cat,
+                alpha=alpha,
+                robust=robust,
+                delta=delta,
+                bidirectional_robust=bidirectional_robust,
+                k=k,
+                direction_weight=direction_weight,
+            )
+
         chamfer_loss.backward()
         optimiser.step()
         if not elbow_fix:
@@ -265,7 +284,7 @@ def mahalanobis_fine_tune(
     elbow_fix=True,
     robust=None,
     delta=0.1,
-    chamfer=0
+    chamfer=0,
     weights=None,
 ):
     # prepare data on gpu and setup optimiser

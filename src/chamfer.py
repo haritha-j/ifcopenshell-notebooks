@@ -930,6 +930,110 @@ def get_chamfer_loss_tensor(
         return bidirectional_dist
 
 
+# compute direction vectors of k neighbours
+def knn_vectors(src_pcd_tensor, target_pcd_tensor, k):
+    cuda = torch.device("cuda")
+
+    # get nn
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        src_pcd_tensor, target_pcd_tensor, bidirectional=False, return_nn=True,
+    k=k)
+    nn = nn[0] # islolate forward direction
+
+    # calculate directions
+    N = src_pcd_tensor.shape[0] # batch size
+    P1 = src_pcd_tensor.shape[1] # n_points in src cloud
+    vectors = torch.zeros((N, P1, k, 3), device=cuda)
+
+    # iterate through neighbours
+    for i in range(k):
+        diff = src_pcd_tensor - nn.knn[:,:,i,:]
+
+        # normalise
+        denom = torch.sqrt(torch.sum(torch.square(diff), 2))
+        denom = denom.unsqueeze(2)
+        vectors[:,:,i,:] = torch.div(diff, denom)
+
+    #print(vectors.shape, nn.dists.shape)
+    return vectors, nn.dists
+
+
+# check if vectors are coplanar
+# hardcoded to k=3 for now. TODO: support arbitrary dimensions
+def check_coplanarity(vectors):
+    cross = torch.cross(vectors[:,:,1,:], vectors[:,:,2,:], 2)
+    #print(vectors[:,:,0,:].shape, cross.shape)
+    dot = torch.einsum('ijk,ijk->ij', vectors[:,:,0,:], cross)
+
+    #print(dot.shape, dot[0][:5], torch.max(dot))
+    dot = torch.nan_to_num(dot)
+    return(torch.absolute(dot))
+
+
+def directional_chamfer_one_direction(src_pcd_tensor, target_pcd_tensor, k, direction_weight):
+    vect, dists = knn_vectors(src_pcd_tensor, target_pcd_tensor, k)
+    coplanarity = check_coplanarity(vect)
+    dists = dists[:, :, 0] # isolate nearest neighbour
+
+    #print("shapes", coplanarity.shape, dists.shape, (dists * coplanarity * direction_weight).shape)
+    dists = dists * (1-direction_weight) + dists * coplanarity * direction_weight
+    dists = torch.sum(torch.sum(dists, dim=1), dim=0)
+    return dists
+
+
+# chamfer loss, weighted by the coplanarity of knn points
+# i.e. if multiple neighbours are coplanar with query point, they are weighted less
+# this method compares an input point cloud, with cloud generated from predicted params
+def get_chamfer_loss_directional_tensor(
+    preds_tensor,
+    src_pcd_tensor,
+    cat,
+    alpha=1.0,
+    return_cloud=False,
+    robust=None,
+    delta=0.1,
+    bidirectional_robust=True,
+    k=1,
+    direction_weight=0.2,
+):
+    src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
+
+    if cat == "elbow":
+        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
+    elif cat == "pipe":
+        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
+    elif cat == "socket":
+        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+
+    # compute loss
+    forward_dist = directional_chamfer_one_direction(src_pcd_tensor, target_pcd_tensor, k, direction_weight)
+    backward_dist = directional_chamfer_one_direction(target_pcd_tensor, src_pcd_tensor, k, direction_weight)
+    bidirectional_dist  = forward_dist + alpha*backward_dist
+    # chamferDist = ChamferDistance()
+    # bidirectional_dist = chamferDist(
+    #     target_pcd_tensor,
+    #     src_pcd_tensor,
+    #     bidirectional=False,
+    #     reduction=None,
+    #     alpha=alpha,
+    #     robust=robust,
+    #     delta=delta,
+    #     bidirectional_robust=bidirectional_robust,
+    # )
+
+    #print("bidirectional_dist", bidirectional_dist.shape)
+    #
+    if return_cloud:
+        return bidirectional_dist, target_pcd_tensor
+    else:
+        return bidirectional_dist
+
+
 # compute mahalanobis distance between a set of point clouds and a mixture of gaussians
 # specifically, distance is computed against each gaussian in the mixture, and the minimum distance is used
 def mahalanobis_distance_gmm(
@@ -968,7 +1072,8 @@ def mahalanobis_distance_gmm(
 
     # find minimum distance for each point in the clouds
     min_dists, _ = torch.min(dists, dim=2)
-    # print("min dists", dists.shape, min_dists.shape, torch.sum(min_dists, dim=1).shape)
+    min_dists = torch.square(min_dists)/1000000
+    #print("min dists", dists.shape, min_dists.shape, torch.sum(min_dists, dim=1).shape)
 
     # reduce
     return torch.sum(min_dists, dim=1)
@@ -1007,13 +1112,13 @@ def get_mahalanobis_loss_tensor(
         src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
         chamferDist = ChamferDistance()
         bidirectional_dist = chamferDist(
-            target_pcd_tensor,
             src_pcd_tensor,
-            bidirectional=True,
+            target_pcd_tensor,
+            bidirectional=False,
             robust=robust,
             delta=delta,
             alpha=alpha,
-            weights = weights,
+            #weights = weights,
         )
         print(dist, chamfer * bidirectional_dist)
         dist += chamfer * bidirectional_dist

@@ -1,6 +1,8 @@
 # viusalize elements / relationships
 
 import math
+import copy
+import torch
 import numpy as np
 
 from OCC.Core.gp import gp_Pnt
@@ -14,9 +16,22 @@ from pythreejs import (
     LineSegmentsGeometry,
     LineMaterial,
 )
+from chamferdist import ChamferDistance
 
 from src.geometry import vector_normalise
 from src.elements import *
+
+
+# covert rgb to hex value
+def rgb_to_hex(r, g, b):
+    # Ensure that the RGB values are within the valid range (0-255)
+    r = max(0, min(255, r))
+    g = max(0, min(255, g))
+    b = max(0, min(255, b))
+
+    # Convert RGB values to a hexadecimal color code
+    hex_color = "#{:02X}{:02X}{:02X}".format(r, g, b)
+    return hex_color
 
 
 # visualize ifc model and point cloud simultaneously
@@ -225,9 +240,9 @@ def pcshow(xs, ys, zs):
     fig.show()
 
 
-# visually show matching points used for chamfer loss
+# visualise a pair of src and tgt points based on their predicted parameters
 # currently expects a 1:1mapping between src and tgt points. TODO: use nearest neighbour to enforce this
-def visualise_chamfer_loss(src_preds, tgt_preds, cat, blueprint):
+def visualise_parameter_pair(src_preds, tgt_preds, cat, blueprint):
     idx = 0
 
     # prepare data on gpu and setup optimiser
@@ -255,7 +270,7 @@ def visualise_chamfer_loss(src_preds, tgt_preds, cat, blueprint):
 
     chamferDist = ChamferDistance()
     bidirectional_nn = chamferDist(
-        target_pcd_tensor, src_pcd_tensor, bidirectional=True, return_nn=True
+        src_pcd_tensor, target_pcd_tensor, bidirectional=True, return_nn=True
     )
 
     tgt_pcd = target_pcd_tensor.detach().cpu().numpy()
@@ -279,15 +294,88 @@ def add_cloud(v, cloud, colour="#70ff70"):
 
 
 # draw lines connecting src and tgt points
-def add_lines(v, src, tgt):
+def add_lines(v, src, tgt, pairs=None, k=1):
     lines = []
-    edge_material = LineBasicMaterial(color="blue", linewidth=3)
-    for i in range(len(tgt)):
+    if pairs is None: pairs = [i for i in range(len(src))]
+    if k==1: pairs = [pairs]
+
+    for j in range(k):
+        positions = [[src[i], tgt[pairs[j][i]]] for i in range(len(tgt))]
         lines.append(
             LineSegments2(
-                LineSegmentsGeometry(positions=[[tgt[i], src[i]]]),
-                LineMaterial(linewidth=1, color="blue"),
+                LineSegmentsGeometry(positions=positions),
+                LineMaterial(linewidth=2, color="green"),
             )
         )
 
     v._displayed_non_pickable_objects.add(lines)
+
+
+# draw lines connecting src and tgt points
+# strength is used to determine colour intensity.
+# this function is much slower due to need to generate a new line segment for each pair
+def add_lines_colour(v, src, tgt, pairs=None, k=1, strength=None):
+    lines = []
+    if pairs is None: pairs = [i for i in range(len(src))]
+    if k==1: pairs = [pairs]
+    if strength is None: strength = [1.0 for i in range(len(pairs[0]))]
+
+    print(len(strength))
+    colour_intensity = [int(255 * s) for s in strength]
+    colour = [rgb_to_hex(100, c, 0) for c in colour_intensity]
+
+    for i in range(len(tgt)):
+        positions = [[src[i], tgt[pairs[j][i]]] for j in range(k)]
+
+        lines.append(
+            LineSegments2(
+                LineSegmentsGeometry(positions=positions),
+                LineMaterial(linewidth=2, color=colour[i]),
+            )
+        )
+
+    v._displayed_non_pickable_objects.add(lines)
+
+
+# visually show matching points
+# pairs is a list of indices of the matching points in tgt cloud to src cloud
+def visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=None, k=1):
+
+    # generate visualiser with blank ifc
+    ifc = setup_ifc_file(blueprint)
+    v = JupyterIFCRenderer(ifc, size=(400, 300))
+
+    # add elements to visualiser
+    if strength is None:
+        add_lines(v, src_cld, tgt_cld, pairs=pairs)
+    else:
+        add_lines_colour(v, src_cld, tgt_cld, pairs=pairs, strength=strength, k=k)
+    add_cloud(v, src_cld, colour="#ff7070")
+    add_cloud(v, tgt_cld, colour="#7070ff")
+
+    return v
+
+
+# generate visualisation of loss between src and tgt clouds
+def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k=1):
+
+    # calculate loss
+    cuda = torch.device("cuda")
+    target_pcd_tensor = torch.tensor([tgt_cld], device=cuda)
+    src_pcd_tensor = torch.tensor([src_cld], device=cuda)
+
+    if loss == "chamfer":
+        chamferDist = ChamferDistance()
+        nn = chamferDist(
+            src_pcd_tensor, target_pcd_tensor, bidirectional=False, return_nn=True, k=k
+        )
+
+        if k == 1:
+            pairs = torch.flatten(nn[0].idx[0].detach().cpu()).numpy()
+            print("pairs", pairs.shape)
+        else:
+            print("int", nn[0].idx[0][:,0].detach().cpu().numpy().shape)
+            pairs = [nn[0].idx[0][:,i].detach().cpu().numpy() for i in range(k)]
+        print(pairs[0].shape, len(pairs))
+
+    return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=pairs, strength=strength, k=k)
