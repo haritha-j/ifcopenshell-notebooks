@@ -976,9 +976,10 @@ def directional_chamfer_one_direction(src_pcd_tensor, target_pcd_tensor, k, dire
     coplanarity = check_coplanarity(vect)
     dists = dists[:, :, 0] # isolate nearest neighbour
 
-    #print("shapes", coplanarity.shape, dists.shape, (dists * coplanarity * direction_weight).shape)
+    #print("shapes", coplanarity.shape, dists.shape, (src_pcd_tensor.shape))
     dists = dists * (1-direction_weight) + dists * coplanarity * direction_weight
     dists = torch.sum(torch.sum(dists, dim=1), dim=0)
+    dists = dists/coplanarity.shape[0]
     return dists
 
 
@@ -1013,7 +1014,7 @@ def get_chamfer_loss_directional_tensor(
     # compute loss
     forward_dist = directional_chamfer_one_direction(src_pcd_tensor, target_pcd_tensor, k, direction_weight)
     backward_dist = directional_chamfer_one_direction(target_pcd_tensor, src_pcd_tensor, k, direction_weight)
-    bidirectional_dist  = forward_dist + alpha*backward_dist
+    bidirectional_dist  = alpha*forward_dist + backward_dist
     # chamferDist = ChamferDistance()
     # bidirectional_dist = chamferDist(
     #     target_pcd_tensor,
