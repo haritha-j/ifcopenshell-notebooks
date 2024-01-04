@@ -1,6 +1,5 @@
 """
-Author: Benny
-Date: Nov 2019
+train a pointnet2 model to predict chamfer loss between two point clouds
 """
 
 import os
