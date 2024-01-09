@@ -56,7 +56,7 @@ def inplace_relu(m):
         m.inplace=True
 
 
-def test(model, model_fcn, loader, device):
+def test(model, model_fcn, loader, device, loss_type="chamfer"):
     losses = []
     predictor = model.eval()
     fcn_predictor = model_fcn.eval()
@@ -77,23 +77,27 @@ def test(model, model_fcn, loader, device):
         pred_trans, _ = predictor(points_transformed)
         pred_combined = torch.cat([pred, pred_trans], 1)
         predicted_rotation = fcn_predictor(pred_combined)
+        rot_mat = trnsfrm.euler_angles_to_matrix(
+            predicted_rotation, convention="XYZ")
 
         # rotate original cloud by predicted rotation
-        predicted_rotation = torch.reshape(predicted_rotation, (predicted_rotation.shape[0], 3, 3))
-        trans = trnsfrm.Rotate(predicted_rotation)
+        #predicted_rotation = torch.reshape(predicted_rotation, (predicted_rotation.shape[0], 3, 3))
+        trans = trnsfrm.Rotate(rot_mat)
         points_t = points.transpose(2, 1)
-        points_transformed = trans.transform_points(points_t)
-        points_transformed = points_transformed.transpose(2, 1)
+        points_transformed2 = trans.transform_points(points_t)
+        points_transformed2 = points_transformed2.transpose(2, 1)
 
-        chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_transformed,
-                                                     separate_directions=False,
-                                                     reduction="mean")
-        print("chamfer_loss: ", chamfer_loss)
+        if loss_type == "chamfer":
+            loss = get_cloud_chamfer_loss_tensor(points_transformed2, points_transformed, separate_directions=False, reduction="mean")
+        else:
+            loss = torch.sum(torch.square(points_transformed2 - points_transformed), dim=(1, 2))
+            loss = loss.mean()
+        # print("chamfer_loss: ", loss)
 
         #batch_loss = torch.sqrt(loss*chamfer_loss.shape[0])/chamfer_loss.shape[0]
         #batch_chamfer_loss = sum(chamfer_loss[0]+chamfer_loss[1])/(len(chamfer_loss)*2)
 
-        losses.append(chamfer_loss)
+        losses.append(loss)
 
     avg_loss = sum(losses)/len(losses)
     print("avg loss",avg_loss)
@@ -167,7 +171,7 @@ def main(args):
     shutil.copy('./train_classification.py', str(exp_dir))
 
     fcn_model = importlib.import_module('fcn')
-    fcn_predictor = fcn_model.get_model(9)
+    fcn_predictor = fcn_model.get_model(3)
 
     predictor = model.get_model(normal_channel=args.use_normals)
     criterion = model.get_loss()
@@ -219,7 +223,7 @@ def main(args):
             points, _ = data['pointcloud'].to(device).float(), data['properties'].to(device)
 
             # perform rotation
-            rotation_scale = min(2., 0.05 + 0.025*epoch)
+            rotation_scale = min(2., 0.05 + 0.05*epoch) # increase the difficulty of the rotation as the training progresses
             rand_rot = get_rand_rotations(points.shape[0], device=device, scale=rotation_scale)
             trans = trnsfrm.Rotate(rand_rot)
             points_transformed = trans.transform_points(points)
@@ -232,8 +236,10 @@ def main(args):
             pred_trans, _ = predictor(points_transformed)
             pred_combined = torch.cat([pred, pred_trans], 1)
             predicted_rotation = fcn_predictor(pred_combined)
+            rot_mat = trnsfrm.euler_angles_to_matrix(
+                predicted_rotation, convention="XYZ")
 
-            loss = criterion(predicted_rotation, points, registration=True)
+            loss = criterion(rot_mat, points, points_transformed, registration=True, loss_type="chamfer")
 
             loss.backward()
             optimizer.step()
@@ -243,16 +249,18 @@ def main(args):
         log_string('Train loss: %f' % loss)
 
         with torch.no_grad():
-            loss = test(predictor.eval(), fcn_predictor.eval(), testDataLoader, device)
+            loss = test(predictor.eval(), fcn_predictor.eval(), testDataLoader, device, loss_type="chamfer")
 
-            if (loss <= best_loss):
+            #if (loss <= best_loss):
+            if True:
                 best_loss = loss
                 best_epoch = epoch + 1
 
             log_string('Test loss: %f' % (loss))
             log_string('Best loss: %f' % (best_loss))
 
-            if (loss <= best_loss):
+            #if (loss <= best_loss):
+            if True:
                 logger.info('Save model...')
                 savepath = str(checkpoints_dir) + '/best_model.pth'
                 log_string('Saving at %s' % savepath)

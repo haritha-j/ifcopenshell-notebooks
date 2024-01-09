@@ -42,19 +42,23 @@ class get_loss(nn.Module):
     def __init__(self):
         super(get_loss, self).__init__()
 
-    def forward(self, pred, points, points_trans=None, registration=False):
+    def forward(self, pred, points, points_trans, registration=False, loss_type="chamfer"):
         if not registration:
             chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_trans, separate_directions=True)
             loss = nn.MSELoss()
             return loss(pred, chamfer_loss)
         else:
-            pred = torch.reshape(pred, (pred.shape[0], 3, 3))
+            #pred = torch.reshape(pred, (pred.shape[0], 3, 3))
             trans = trnsfrm.Rotate(pred)
 
             points_t = points.transpose(2, 1)
-            points_transformed = trans.transform_points(points_t)
-            points_transformed = points_transformed.transpose(2, 1)
+            points_transformed2 = trans.transform_points(points_t)
+            points_transformed2 = points_transformed2.transpose(2, 1)
 
-            chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_transformed, separate_directions=False, reduction="mean")
+            if loss_type == "chamfer":
+                loss = get_cloud_chamfer_loss_tensor(points_transformed2, points_trans, separate_directions=False, reduction="mean")
+            else:
+                loss = torch.sum(torch.square(points_transformed2 - points_trans), dim=(1, 2))
+                loss = loss.mean()
             #print("chamfer_loss: ", chamfer_loss)
-            return chamfer_loss
+            return loss

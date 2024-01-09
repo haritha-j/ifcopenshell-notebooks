@@ -371,7 +371,7 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
 
         if k == 1:
             pairs = torch.flatten(nn[0].idx[0].detach().cpu()).numpy()
-            print("pairs", pairs.shape)
+            print("pairs", pairs)
         else:
             print("int", nn[0].idx[0][:,0].detach().cpu().numpy().shape)
             pairs = [nn[0].idx[0][:,i].detach().cpu().numpy() for i in range(k)]
