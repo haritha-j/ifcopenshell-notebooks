@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pointnet2_utils import PointNetSetAbstraction
 
-from src.chamfer import get_chamfer_loss_tensor, get_chamfer_loss, get_chamfer_loss_from_param_tensor
+from src.chamfer import get_chamfer_loss_tensor, get_chamfer_loss, get_chamfer_loss_from_param_tensor, get_correspondence_loss_from_param_tensor
 
 class get_model(nn.Module):
     def __init__(self,outputs,normal_channel=True):
@@ -50,9 +50,10 @@ class get_loss(nn.Module):
         chamfer_scale = 0.0005
         #chamfer_loss = get_chamfer_loss_tensor(pred, points, cat) * chamfer_scale
         chamfer_loss = get_chamfer_loss_from_param_tensor(pred, target, cat) * chamfer_scale
+        #correspondence_loss = get_correspondence_loss_from_param_tensor(pred, target, cat)
+        #print("l", total_loss, chamfer_scale*correspondence_loss, 0.0005*ch_loss)
 
-        #print("tot", total_loss, "chm", chamfer_loss)
-
-        return total_loss + chamfer_loss
+        #return total_loss + chamfer_loss
         #return total_loss
-        #return chamfer_loss
+        return chamfer_loss
+        #return chamfer_scale*correspondence_loss +total_loss

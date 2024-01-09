@@ -1155,6 +1155,34 @@ def get_chamfer_loss_from_param_tensor(preds_tensor, src_tensor, cat):
     return bidirectional_dist
 
 
+# this method compares the cloud generated from input params with the cloud generated from predicted params.
+# instead of searching for the nearest neighbour, it assumes an ordered correspondence between the points in the two clouds.
+def get_correspondence_loss_from_param_tensor(preds_tensor, src_tensor, cat):
+    if cat == "elbow" or "socket":
+        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
+        src_pcd_tensor = generate_elbow_cloud_tensor(src_tensor)
+    elif cat == "pipe":
+        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+        src_pcd_tensor = generate_pipe_cloud_tensor(src_tensor)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=True)
+        src_pcd_tensor = generate_tee_cloud_tensor(src_tensor, bp=True)
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
+        src_pcd_tensor = generate_flange_cloud_tensor(
+            src_tensor, disc=True
+        )
+    l2_loss = torch.sum(torch.square(target_pcd_tensor - src_pcd_tensor), dim=(1, 2))
+    l2_loss = l2_loss.mean()
+
+    # chamferDist = ChamferDistance()
+    # bidirectional_dist = chamferDist(
+    #     target_pcd_tensor, src_pcd_tensor, bidirectional=True
+    # )
+    #print("l2", l2_loss, "chamf", bidirectional_dist)
+    return l2_loss
+
+
 # this method compares an input point cloud, with a second point cloud
 def get_cloud_chamfer_loss_tensor(
     src_pcd_tensor,
@@ -1164,6 +1192,7 @@ def get_cloud_chamfer_loss_tensor(
     robust=None,
     delta=0.1,
     bidirectional_robust=True,
+    reduction=None
 ):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     tgt_pcd_tensor = tgt_pcd_tensor.transpose(2, 1)
@@ -1173,7 +1202,7 @@ def get_cloud_chamfer_loss_tensor(
         tgt_pcd_tensor,
         src_pcd_tensor,
         bidirectional=True,
-        reduction=None,
+        reduction=reduction,
         separate_directions=separate_directions,
     )
     if separate_directions == True:

@@ -20,6 +20,8 @@ from chamferdist import ChamferDistance
 
 from src.geometry import vector_normalise
 from src.elements import *
+from src.utils import scale_preds
+from src.chamfer import *
 
 
 # covert rgb to hex value
@@ -241,9 +243,8 @@ def pcshow(xs, ys, zs):
 
 
 # visualise a pair of src and tgt points based on their predicted parameters
-# currently expects a 1:1mapping between src and tgt points. TODO: use nearest neighbour to enforce this
-def visualise_parameter_pair(src_preds, tgt_preds, cat, blueprint):
-    idx = 0
+# currently expects a 1:1mapping between src and tgt points.
+def visualise_parameter_pair(src_preds, tgt_preds, cat, blueprint, idx=0):
 
     # prepare data on gpu and setup optimiser
     cuda = torch.device("cuda")
@@ -268,23 +269,18 @@ def visualise_parameter_pair(src_preds, tgt_preds, cat, blueprint):
         target_pcd_tensor = generate_flange_cloud_tensor(tgt_preds_t, disc=True)
         src_pcd_tensor = generate_flange_cloud_tensor(src_preds_t, disc=True)
 
-    chamferDist = ChamferDistance()
-    bidirectional_nn = chamferDist(
-        src_pcd_tensor, target_pcd_tensor, bidirectional=True, return_nn=True
-    )
+    # chamferDist = ChamferDistance()
+    # bidirectional_nn = chamferDist(
+    #     src_pcd_tensor, target_pcd_tensor, bidirectional=True, return_nn=True
+    # )
 
     tgt_pcd = target_pcd_tensor.detach().cpu().numpy()
     src_pcd = src_pcd_tensor.detach().cpu().numpy()
 
-    tgt_pcd_single, src_pcd_single = tgt_pcd[idx].tolist(), src_pcd[idx].tolist()
+    tgt_pcd_single, src_pcd_single = tgt_pcd[idx], src_pcd[idx]
 
     # generate ifc model and visualisation
-    v, _ = visualize_predictions(
-        [], cat, [scaled_original_preds[idx]], blueprint, visualize=True
-    )
-
-    print(v)
-    return (v, src_pcd_single, tgt_pcd_single)
+    return visualise_matching_points(src_pcd_single, tgt_pcd_single, blueprint)
 
 
 # add cloud to visualisation
@@ -301,6 +297,7 @@ def add_lines(v, src, tgt, pairs=None, k=1):
 
     for j in range(k):
         positions = [[src[i], tgt[pairs[j][i]]] for i in range(len(tgt))]
+        print(len(positions))
         lines.append(
             LineSegments2(
                 LineSegmentsGeometry(positions=positions),
@@ -330,7 +327,7 @@ def add_lines_colour(v, src, tgt, pairs=None, k=1, strength=None):
         lines.append(
             LineSegments2(
                 LineSegmentsGeometry(positions=positions),
-                LineMaterial(linewidth=2, color=colour[i]),
+                LineMaterial(linewidth=1, color=colour[i]),
             )
         )
 
@@ -350,8 +347,10 @@ def visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=
         add_lines(v, src_cld, tgt_cld, pairs=pairs)
     else:
         add_lines_colour(v, src_cld, tgt_cld, pairs=pairs, strength=strength, k=k)
-    add_cloud(v, src_cld, colour="#ff7070")
-    add_cloud(v, tgt_cld, colour="#7070ff")
+        
+    print(src_cld.shape, type(src_cld[0][0]), tgt_cld.shape, type(tgt_cld))
+    add_cloud(v, src_cld.astype(np.float64), colour="#ff7070")
+    add_cloud(v, tgt_cld.astype(np.float64), colour="#7070ff")
 
     return v
 
@@ -378,4 +377,4 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
             pairs = [nn[0].idx[0][:,i].detach().cpu().numpy() for i in range(k)]
         print(pairs[0].shape, len(pairs))
 
-    return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=pairs, strength=strength, k=k)
+    return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=strength, k=k)

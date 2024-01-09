@@ -1,5 +1,8 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pytorch3d.transforms as trnsfrm
+
 from pointnet2_utils import PointNetSetAbstraction
 from src.chamfer import get_cloud_chamfer_loss_tensor
 
@@ -39,7 +42,19 @@ class get_loss(nn.Module):
     def __init__(self):
         super(get_loss, self).__init__()
 
-    def forward(self, pred, points, points_trans):
-        loss = nn.MSELoss()
-        chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_trans, separate_directions=True)
-        return loss(pred, chamfer_loss)
+    def forward(self, pred, points, points_trans=None, registration=False):
+        if not registration:
+            chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_trans, separate_directions=True)
+            loss = nn.MSELoss()
+            return loss(pred, chamfer_loss)
+        else:
+            pred = torch.reshape(pred, (pred.shape[0], 3, 3))
+            trans = trnsfrm.Rotate(pred)
+
+            points_t = points.transpose(2, 1)
+            points_transformed = trans.transform_points(points_t)
+            points_transformed = points_transformed.transpose(2, 1)
+
+            chamfer_loss = get_cloud_chamfer_loss_tensor(points, points_transformed, separate_directions=False, reduction="mean")
+            #print("chamfer_loss: ", chamfer_loss)
+            return chamfer_loss
