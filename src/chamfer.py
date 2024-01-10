@@ -7,7 +7,7 @@ from chamferdist import ChamferDistance
 import torch.nn.functional as F
 
 from src.visualisation import get_direction_from_trig
-from src.geometry import vector_normalise, vector_mag
+from src.geometry import *
 
 
 # generate points on surface of elbow

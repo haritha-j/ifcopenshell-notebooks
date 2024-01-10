@@ -6,7 +6,7 @@ import subprocess
 import open3d as o3d
 
 from src.visualisation import *
-from src.geometry import vector_normalise
+from src.geometry import *
 
 
 def run_command(cmds):

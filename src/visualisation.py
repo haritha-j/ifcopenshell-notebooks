@@ -18,7 +18,7 @@ from pythreejs import (
 )
 from chamferdist import ChamferDistance
 
-from src.geometry import vector_normalise
+from src.geometry import *
 from src.elements import *
 from src.utils import scale_preds
 from src.chamfer import *
@@ -38,7 +38,7 @@ def rgb_to_hex(r, g, b):
 
 # visualize ifc model and point cloud simultaneously
 def vis_ifc_and_cloud(ifc, clouds):
-    viewer = JupyterIFCRenderer(ifc, size=(400, 300))
+    viewer = JupyterIFCRenderer(ifc, size=(700, 550))
     colours = ["#ff7070", "#70ff70", "#7070ff"]
     for i, cloud in enumerate(clouds):
         if cloud is not None:
@@ -47,16 +47,6 @@ def vis_ifc_and_cloud(ifc, clouds):
             col = i if i < len(colours) else 0
             viewer.DisplayShape(gp_pnt_list, vertex_color=colours[col])
     return viewer
-
-
-# recover axis direction from six trig values starting from index k
-def get_direction_from_trig(preds, k):
-    d = [
-        math.atan2(preds[k], preds[k + 1]),
-        math.atan2(preds[k + 2], preds[k + 3]),
-        math.atan2(preds[k + 4], preds[k + 5]),
-    ]
-    return vector_normalise(d)
 
 
 # recover axis direction from 2 position values starting from index k, j
@@ -320,7 +310,6 @@ def add_lines_colour(v, src, tgt, pairs=None, k=1, strength=None):
     print(len(strength))
     colour_intensity = [int(255 * s) for s in strength]
     colour = [rgb_to_hex(100, c, 0) for c in colour_intensity]
-
     for i in range(len(tgt)):
         positions = [[src[i], tgt[pairs[j][i]]] for j in range(k)]
 
@@ -347,7 +336,7 @@ def visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=
         add_lines(v, src_cld, tgt_cld, pairs=pairs)
     else:
         add_lines_colour(v, src_cld, tgt_cld, pairs=pairs, strength=strength, k=k)
-        
+
     print(src_cld.shape, type(src_cld[0][0]), tgt_cld.shape, type(tgt_cld))
     add_cloud(v, src_cld.astype(np.float64), colour="#ff7070")
     add_cloud(v, tgt_cld.astype(np.float64), colour="#7070ff")
@@ -364,6 +353,7 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
     src_pcd_tensor = torch.tensor([src_cld], device=cuda)
 
     if loss == "chamfer":
+        print("SG", src_pcd_tensor.shape, target_pcd_tensor.shape)
         chamferDist = ChamferDistance()
         nn = chamferDist(
             src_pcd_tensor, target_pcd_tensor, bidirectional=False, return_nn=True, k=k
@@ -371,10 +361,10 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
 
         if k == 1:
             pairs = torch.flatten(nn[0].idx[0].detach().cpu()).numpy()
-            print("pairs", pairs)
+            #print("pairs", pairs)
         else:
             print("int", nn[0].idx[0][:,0].detach().cpu().numpy().shape)
             pairs = [nn[0].idx[0][:,i].detach().cpu().numpy() for i in range(k)]
         print(pairs[0].shape, len(pairs))
 
-    return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=strength, k=k)
+    return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=pairs, strength=strength, k=k)

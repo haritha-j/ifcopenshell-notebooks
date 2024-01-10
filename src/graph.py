@@ -11,7 +11,7 @@ import dgl
 from dgl.data import DGLDataset
 import torch
 
-from src.geometry import get_dimensions, vector_normalise, norm_array
+from src.geometry import *
 from src.utils import *
 
 from src.cloud import element_to_cloud

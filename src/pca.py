@@ -6,6 +6,7 @@ from tqdm import tqdm_notebook as tqdm
 
 from src.visualisation import get_direction_from_trig
 from src.plots import plot_error_graph
+from src.geometry import *
 
 
 def get_PCA(cloud):

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from src.visualisation import get_direction_from_trig
-from src.geometry import sq_distance
+from src.geometry import *
 
 
 def plot_error_graph(

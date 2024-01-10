@@ -214,3 +214,13 @@ def get_labelcloud_bbox(points, label):
         "rotations": {"x": r[0], "y": r[1], "z": r[2]},
     }
     return bbox
+
+
+# recover axis direction from six trig values starting from index k
+def get_direction_from_trig(preds, k):
+    d = [
+        math.atan2(preds[k], preds[k + 1]),
+        math.atan2(preds[k + 2], preds[k + 3]),
+        math.atan2(preds[k + 4], preds[k + 5]),
+    ]
+    return vector_normalise(d)

@@ -223,7 +223,7 @@ def main(args):
             points, _ = data['pointcloud'].to(device).float(), data['properties'].to(device)
 
             # perform rotation
-            rotation_scale = min(2., 0.05 + 0.05*epoch) # increase the difficulty of the rotation as the training progresses
+            rotation_scale = min(2., 0.05 + 0.025*epoch) # increase the difficulty of the rotation as the training progresses
             rand_rot = get_rand_rotations(points.shape[0], device=device, scale=rotation_scale)
             trans = trnsfrm.Rotate(rand_rot)
             points_transformed = trans.transform_points(points)
@@ -239,7 +239,7 @@ def main(args):
             rot_mat = trnsfrm.euler_angles_to_matrix(
                 predicted_rotation, convention="XYZ")
 
-            loss = criterion(rot_mat, points, points_transformed, registration=True, loss_type="chamfer")
+            loss = criterion(rot_mat, points, points_transformed, registration=True, loss_type="direct")
 
             loss.backward()
             optimizer.step()
@@ -249,7 +249,7 @@ def main(args):
         log_string('Train loss: %f' % loss)
 
         with torch.no_grad():
-            loss = test(predictor.eval(), fcn_predictor.eval(), testDataLoader, device, loss_type="chamfer")
+            loss = test(predictor.eval(), fcn_predictor.eval(), testDataLoader, device, loss_type="direct")
 
             #if (loss <= best_loss):
             if True:
