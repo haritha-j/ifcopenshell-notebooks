@@ -930,6 +930,50 @@ def get_chamfer_loss_tensor(
         return bidirectional_dist
 
 
+
+# this method compares pair loss of an input point cloud, with cloud generated from predicted params
+def get_pair_loss_tensor(
+    preds_tensor,
+    src_pcd_tensor,
+    cat
+):
+    src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
+
+    if cat == "elbow":
+        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
+    elif cat == "pipe":
+        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
+    elif cat == "socket":
+        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        src_pcd_tensor,
+        target_pcd_tensor,
+        bidirectional=True,
+        return_nn=True
+    )
+    bidirectional_dist = torch.sum(nn[0].dists) + torch.sum(nn[1].dists)
+    batch_size, point_count, _ = src_pcd_tensor.shape
+    #print("s", bidirectional_dist)
+    bidirectional_dist = bidirectional_dist / (batch_size * point_count)  
+    true_idx_bwd = torch.gather(nn[1].idx, 1, nn[0].idx) # tgt[[src[match]]]
+    paired_points_bwd = torch.stack([nn[0].knn[i][torch.flatten(true_idx_bwd[i])] for i in range(true_idx_bwd.shape[0])])
+    paired_points_bwd = paired_points_bwd.reshape((paired_points_bwd.shape[0], 
+                                    paired_points_bwd.shape[1], 
+                                    paired_points_bwd.shape[3])) 
+    pair_dist_bwd = torch.sum(torch.square(paired_points_bwd - src_pcd_tensor))
+    
+    # pair_dist = (pair_dist_fwd + pair_dist_bwd) / (batch_size * point_count)
+    pair_dist = pair_dist_bwd / (batch_size * point_count)
+    print("nn", bidirectional_dist.item(), pair_dist.item())
+    return pair_dist
+
+
 # compute direction vectors of k neighbours
 def knn_vectors(src_pcd_tensor, target_pcd_tensor, k):
     cuda = torch.device("cuda")

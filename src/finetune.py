@@ -122,7 +122,8 @@ def chamfer_fine_tune(
     bidirectional_robust=True,
     return_intermediate=False,
     k=1,
-    direction_weight=None
+    direction_weight=None,
+    pair_loss=False
 ):
     # prepare data on gpu and setup optimiser
     cuda = torch.device("cuda")
@@ -158,15 +159,23 @@ def chamfer_fine_tune(
             intermediate_results.append(preds_t.clone().detach().cpu().numpy())
 
         if direction_weight is None:
-            chamfer_loss = get_chamfer_loss_tensor(
-                preds_t,
-                cloud_t,
-                cat,
-                alpha=alpha,
-                robust=robust,
-                delta=delta,
-                bidirectional_robust=bidirectional_robust,
-            )
+            if pair_loss is False:
+                chamfer_loss = get_chamfer_loss_tensor(
+                    preds_t,
+                    cloud_t,
+                    cat,
+                    alpha=alpha,
+                    robust=robust,
+                    delta=delta,
+                    bidirectional_robust=bidirectional_robust,
+                )
+            else:
+                chamfer_loss = get_pair_loss_tensor(
+                    preds_t,
+                    cloud_t,
+                    cat
+                )
+                
         else:
             chamfer_loss = get_chamfer_loss_directional_tensor(
                 preds_t,

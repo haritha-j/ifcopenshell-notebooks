@@ -325,11 +325,17 @@ def add_lines_colour(v, src, tgt, pairs=None, k=1, strength=None):
 
 # visually show matching points
 # pairs is a list of indices of the matching points in tgt cloud to src cloud
-def visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=None, k=1):
+def visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=None, k=1, same_cloud=False):
 
     # generate visualiser with blank ifc
     ifc = setup_ifc_file(blueprint)
-    v = JupyterIFCRenderer(ifc, size=(400, 300))
+    v = JupyterIFCRenderer(ifc, size=(700, 550))
+    
+    add_cloud(v, src_cld.astype(np.float64), colour="#ff7070")
+    add_cloud(v, tgt_cld.astype(np.float64), colour="#7070ff")
+    
+    if same_cloud:
+        tgt_cld = src_cld
 
     # add elements to visualiser
     if strength is None:
@@ -337,21 +343,19 @@ def visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=None, strength=
     else:
         add_lines_colour(v, src_cld, tgt_cld, pairs=pairs, strength=strength, k=k)
 
-    print(src_cld.shape, type(src_cld[0][0]), tgt_cld.shape, type(tgt_cld))
-    add_cloud(v, src_cld.astype(np.float64), colour="#ff7070")
-    add_cloud(v, tgt_cld.astype(np.float64), colour="#7070ff")
-
+    #print(src_cld.shape, type(src_cld[0][0]), tgt_cld.shape, type(tgt_cld))
     return v
 
 
 # generate visualisation of loss between src and tgt clouds
-def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k=1):
+def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k=1, pairs=None, same_cloud=False):
 
     # calculate loss
     cuda = torch.device("cuda")
     target_pcd_tensor = torch.tensor([tgt_cld], device=cuda)
     src_pcd_tensor = torch.tensor([src_cld], device=cuda)
 
+    # if loss is not chamfer, then use the pairs provided
     if loss == "chamfer":
         print("SG", src_pcd_tensor.shape, target_pcd_tensor.shape)
         chamferDist = ChamferDistance()
@@ -365,6 +369,6 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
         else:
             print("int", nn[0].idx[0][:,0].detach().cpu().numpy().shape)
             pairs = [nn[0].idx[0][:,i].detach().cpu().numpy() for i in range(k)]
-        print(pairs[0].shape, len(pairs))
+        print("pair", pairs[0].shape, len(pairs))
 
-    return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=pairs, strength=strength, k=k)
+    return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=pairs, strength=strength, k=k, same_cloud=same_cloud)
