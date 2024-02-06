@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=32, help='batch size in training')
     parser.add_argument('--model', default='pointnet2_meta_ssg', help='model name [default: pointnet2_meta_ssg]')
     parser.add_argument('--epoch', default=100, type=int, help='number of epoch in training')
-    parser.add_argument('--learning_rate', default=0.001, type=float, help='learning rate in training')
+    parser.add_argument('--learning_rate', default=0.01, type=float, help='learning rate in training')
     parser.add_argument('--num_point', type=int, default=2048, help='Point Number')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer for training')
     parser.add_argument('--log_dir', type=str, default="meta", help='experiment root')
@@ -96,7 +96,6 @@ def test(model, model_fcn, loader, device, loss_type="chamfer"):
 
         #batch_loss = torch.sqrt(loss*chamfer_loss.shape[0])/chamfer_loss.shape[0]
         #batch_chamfer_loss = sum(chamfer_loss[0]+chamfer_loss[1])/(len(chamfer_loss)*2)
-
         losses.append(loss)
 
     avg_loss = sum(losses)/len(losses)
@@ -205,7 +204,7 @@ def main(args):
         optimizer = torch.optim.SGD(chain(predictor.parameters(), fcn_predictor.parameters()),
                                     lr=0.01, momentum=0.9)
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.2)
     global_epoch = 0
     global_step = 0
     best_loss = math.inf
@@ -223,7 +222,7 @@ def main(args):
             points, _ = data['pointcloud'].to(device).float(), data['properties'].to(device)
 
             # perform rotation
-            rotation_scale = min(2., 0.05 + 0.025*epoch) # increase the difficulty of the rotation as the training progresses
+            rotation_scale = min(2., 0.1 + 0.05*epoch) # increase the difficulty of the rotation as the training progresses
             rand_rot = get_rand_rotations(points.shape[0], device=device, scale=rotation_scale)
             trans = trnsfrm.Rotate(rand_rot)
             points_transformed = trans.transform_points(points)

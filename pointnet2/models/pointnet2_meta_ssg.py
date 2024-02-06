@@ -60,5 +60,5 @@ class get_loss(nn.Module):
             else:
                 loss = torch.sum(torch.square(points_transformed2 - points_trans), dim=(1, 2))
                 loss = loss.mean()
-            #print("chamfer_loss: ", chamfer_loss)
+                #print("chamfer_loss: ", loss)
             return loss

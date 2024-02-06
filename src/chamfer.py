@@ -962,16 +962,34 @@ def get_pair_loss_tensor(
     #print("s", bidirectional_dist)
     bidirectional_dist = bidirectional_dist / (batch_size * point_count)  
     true_idx_bwd = torch.gather(nn[1].idx, 1, nn[0].idx) # tgt[[src[match]]]
-    paired_points_bwd = torch.stack([nn[0].knn[i][torch.flatten(true_idx_bwd[i])] for i in range(true_idx_bwd.shape[0])])
-    paired_points_bwd = paired_points_bwd.reshape((paired_points_bwd.shape[0], 
-                                    paired_points_bwd.shape[1], 
-                                    paired_points_bwd.shape[3])) 
-    pair_dist_bwd = torch.sum(torch.square(paired_points_bwd - src_pcd_tensor))
     
-    # pair_dist = (pair_dist_fwd + pair_dist_bwd) / (batch_size * point_count)
-    pair_dist = pair_dist_bwd / (batch_size * point_count)
+    paired_points_bwd = torch.stack([target_pcd_tensor[i][torch.flatten(nn[0].idx[i])] for i in range(nn[0].idx.shape[0])])
+    pair_dist_bwd = paired_points_bwd - src_pcd_tensor
+    paired_points_fwd = torch.stack([src_pcd_tensor[i][torch.flatten(true_idx_bwd[i])] for i in range(true_idx_bwd.shape[0])])
+    pair_dist_fwd = paired_points_fwd - paired_points_bwd
+    
+    #print("sp", pair_dist_bwd.shape, pair_dist_fwd.shape)
+    pair_dist = pair_dist_bwd + pair_dist_fwd
+    pair_dist = torch.mul(torch.abs(pair_dist), torch.abs(pair_dist_bwd))
+    pair_dist = torch.sum(pair_dist) / (batch_size * point_count)
+    
+    # paired_points_bwd = torch.stack([src_pcd_tensor[i][torch.flatten(true_idx_bwd[i])] for i in range(true_idx_bwd.shape[0])])
+    # # paired_points_bwd = paired_points_bwd.reshape((paired_points_bwd.shape[0], 
+    # #                                 paired_points_bwd.shape[1], 
+    # #                                 paired_points_bwd.shape[3])) 
+    # pair_dist_bwd = torch.sum(torch.square(paired_points_bwd - src_pcd_tensor))
+    
+    # true_idx_fwd = torch.gather(nn[0].idx, 1, nn[1].idx) # tgt[[src[match]]]
+    # paired_points_fwd = torch.stack([target_pcd_tensor[i][torch.flatten(true_idx_fwd[i])] for i in range(true_idx_fwd.shape[0])])
+    # # paired_points_fwd = paired_points_fwd.reshape((paired_points_fwd.shape[0], 
+    # #                                 paired_points_fwd.shape[1], 
+    # #                                 paired_points_fwd.shape[3])) 
+    # pair_dist_fwd = torch.sum(torch.square(paired_points_fwd - target_pcd_tensor))
+    
+    # # pair_dist = (pair_dist_fwd + pair_dist_bwd) / (batch_size * point_count)
+    # pair_dist = pair_dist_bwd / (batch_size * point_count)
     print("nn", bidirectional_dist.item(), pair_dist.item())
-    return pair_dist
+    return pair_dist + bidirectional_dist
 
 
 # compute direction vectors of k neighbours
@@ -1258,4 +1276,67 @@ def get_cloud_chamfer_loss_tensor(
             1,
         )
 
+    return bidirectional_dist
+
+
+def get_pair_loss_clouds_tensor(x, y, k=1, add_pair_loss=False):
+    chamferDist = ChamferDistance()
+    if not add_pair_loss:
+        if k==1:
+            bidirectional_dist = chamferDist(
+                x,
+                y,
+                bidirectional=True,
+                reduction="mean",
+                separate_directions=False,
+                robust=None
+            )
+        else:
+            nn = chamferDist(x, y, bidirectional=True, return_nn=True, k=k)
+            batch_size, point_count, _ = x.shape
+            bidirectional_dist = torch.sum(nn[0].dists) + torch.sum(nn[1].dists)
+            bidirectional_dist = bidirectional_dist / (batch_size * point_count)
+    else:
+        # add a loss term for mismatched pairs
+        nn = chamferDist(
+            x, y, bidirectional=True, return_nn=True, k=1
+        )
+        #print("d", nn[0].dists.grad_fn, nn[0].idx.grad_fn)
+        bidirectional_dist = torch.sum(nn[0].dists) + torch.sum(nn[1].dists)
+        batch_size, point_count, _ = x.shape
+        
+        true_idx_fwd = torch.gather(nn[0].idx, 1, nn[1].idx) # tgt[[src[match]]]
+        true_idx_bwd = torch.gather(nn[1].idx, 1, nn[0].idx) # tgt[[src[match]]]
+        
+        # manual chamfer loss
+        paired_points_x_to_y = torch.stack([y[i][torch.flatten(nn[0].idx[i])] for i in range(nn[0].idx.shape[0])])
+        pair_dist_x_to_y = paired_points_x_to_y - x
+
+        paired_points_y_to_x = torch.stack([x[i][torch.flatten(true_idx_bwd[i])] for i in range(true_idx_bwd.shape[0])])
+        pair_dist_y_to_x = paired_points_y_to_x - paired_points_x_to_y
+
+        pair_dist = pair_dist_x_to_y + pair_dist_y_to_x
+        pair_dist = torch.mul(torch.abs(pair_dist), torch.abs(pair_dist_x_to_y))
+        pair_dist = torch.sum(pair_dist)
+        #pair_dist = torch.sum(torch.square(pair_dist))
+        
+        # reverse direction
+        reverse_paired_points_y_to_x = torch.stack([x[i][torch.flatten(nn[1].idx[i])] for i in range(nn[1].idx.shape[0])])
+        reverse_pair_dist_y_to_x = reverse_paired_points_y_to_x - y
+
+        reverse_paired_points_x_to_y = torch.stack([y[i][torch.flatten(true_idx_fwd[i])] for i in range(true_idx_fwd.shape[0])])
+        reverse_pair_dist_x_to_y = reverse_paired_points_x_to_y - reverse_paired_points_y_to_x
+
+        reverse_pair_dist = reverse_pair_dist_y_to_x + reverse_pair_dist_x_to_y
+        reverse_pair_dist = torch.mul(torch.abs(reverse_pair_dist), torch.abs(reverse_pair_dist_y_to_x))
+        reverse_pair_dist = torch.sum(reverse_pair_dist)
+        #reverse_pair_dist = torch.sum(torch.square(reverse_pair_dist))
+        
+        pair_dist += reverse_pair_dist
+        
+
+        #bidirectional_dist = bidirectional_dist + pair_dist 
+        bidirectional_dist = pair_dist 
+        bidirectional_dist = bidirectional_dist / (batch_size)
+        
     return bidirectional_dist
