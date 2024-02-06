@@ -8,6 +8,16 @@ import torch.nn.functional as F
 
 from src.visualisation import get_direction_from_trig
 from src.geometry import *
+from utils.EMD import emd_module as emd
+
+
+# calculate approximate earth mover's distance
+# NOTE: gradient is only calculated for output, not gt
+def calc_emd(output, gt, eps=0.005, iterations=50):
+    emd_loss = emd.emdModule()
+    dist, assignment = emd_loss(output, gt, eps, iterations)
+    emd_out = torch.sum(torch.sqrt(dist))
+    return emd_out, assignment
 
 
 # generate points on surface of elbow
