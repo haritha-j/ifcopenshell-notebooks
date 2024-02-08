@@ -525,8 +525,8 @@ def generate_elbow_cloud_tensor(preds_tensor, return_elbow_edge=False):
     r_axis = torch.sqrt(torch.square(x) + torch.square(y))
 
     # sample points in rings along axis
-    no_of_axis_points = 100
-    no_of_ring_points = 20
+    no_of_axis_points = 128
+    no_of_ring_points = 16
     # ring_points = torch.zeros(1,1,1).cuda().expand(tensor_size, no_of_axis_points*no_of_ring_points, 3)
     # ring_points = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points, 3)).cuda()
     ring_points_list = []
@@ -596,7 +596,6 @@ def generate_elbow_cloud_tensor(preds_tensor, return_elbow_edge=False):
 
     # t3 = time.perf_counter()
     # print("cloud", t2-t1, "chamf", t3-t2)
-
     return ring_points
 
 
@@ -883,6 +882,21 @@ def get_chamfer_loss(preds_tensor, src_pcd_tensor, cat):
     return bidirectional_dist
 
 
+def get_shape_cloud_tensor(preds_tensor, cat):
+    if cat == "elbow":
+        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
+    elif cat == "pipe":
+        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
+    elif cat == "tee":
+        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
+    elif cat == "flange":
+        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
+    elif cat == "socket":
+        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+
+    return target_pcd_tensor
+    
+
 # delta is the constant for robust kernel
 # alpha determines the weighting of bidirectional chamfer loss
 # this method compares an input point cloud, with cloud generated from predicted params
@@ -899,16 +913,7 @@ def get_chamfer_loss_tensor(
 ):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
 
-    if cat == "elbow":
-        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
-    elif cat == "pipe":
-        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
-    elif cat == "tee":
-        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
-    elif cat == "flange":
-        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
-    elif cat == "socket":
-        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+    target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
 
     chamferDist = ChamferDistance()
     if reduce:
@@ -940,6 +945,19 @@ def get_chamfer_loss_tensor(
         return bidirectional_dist
 
 
+# compares pair loss of an input point cloud, with cloud generated from predicted params using EMD
+def get_emd_loss_tensor(
+    preds_tensor,
+    src_pcd_tensor,
+    cat,
+    iterations=500
+):
+    src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
+    target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
+
+    emd, _ = calc_emd(target_pcd_tensor, src_pcd_tensor, iterations=iterations)
+    return emd*0.01
+
 
 # this method compares pair loss of an input point cloud, with cloud generated from predicted params
 def get_pair_loss_tensor(
@@ -949,16 +967,7 @@ def get_pair_loss_tensor(
 ):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
 
-    if cat == "elbow":
-        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
-    elif cat == "pipe":
-        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
-    elif cat == "tee":
-        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
-    elif cat == "flange":
-        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
-    elif cat == "socket":
-        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+    target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
 
     chamferDist = ChamferDistance()
     nn = chamferDist(
@@ -1072,16 +1081,7 @@ def get_chamfer_loss_directional_tensor(
 ):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
 
-    if cat == "elbow":
-        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
-    elif cat == "pipe":
-        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
-    elif cat == "tee":
-        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
-    elif cat == "flange":
-        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
-    elif cat == "socket":
-        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+    target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
 
     # compute loss
     forward_dist = directional_chamfer_one_direction(src_pcd_tensor, target_pcd_tensor, k, direction_weight)
@@ -1165,16 +1165,7 @@ def get_mahalanobis_loss_tensor(
     src_pcd_tensor=None,
     weights=None,
 ):
-    if cat == "elbow":
-        target_pcd_tensor = generate_elbow_cloud_tensor(preds_tensor)
-    elif cat == "pipe":
-        target_pcd_tensor = generate_pipe_cloud_tensor(preds_tensor)
-    elif cat == "tee":
-        target_pcd_tensor = generate_tee_cloud_tensor(preds_tensor, bp=False)
-    elif cat == "flange":
-        target_pcd_tensor = generate_flange_cloud_tensor(preds_tensor, disc=True)
-    elif cat == "socket":
-        target_pcd_tensor = generate_socket_elbow_cloud_tensor(preds_tensor)
+    target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
 
     dist = mahalanobis_distance_gmm(
         target_pcd_tensor, means, covariances, robust=robust, delta=delta
@@ -1330,23 +1321,23 @@ def get_pair_loss_clouds_tensor(x, y, k=1, add_pair_loss=False):
         pair_dist = torch.sum(pair_dist)
         #pair_dist = torch.sum(torch.square(pair_dist))
         
-        # reverse direction
-        reverse_paired_points_y_to_x = torch.stack([x[i][torch.flatten(nn[1].idx[i])] for i in range(nn[1].idx.shape[0])])
-        reverse_pair_dist_y_to_x = reverse_paired_points_y_to_x - y
+        # # reverse direction
+        # reverse_paired_points_y_to_x = torch.stack([x[i][torch.flatten(nn[1].idx[i])] for i in range(nn[1].idx.shape[0])])
+        # reverse_pair_dist_y_to_x = reverse_paired_points_y_to_x - y
 
-        reverse_paired_points_x_to_y = torch.stack([y[i][torch.flatten(true_idx_fwd[i])] for i in range(true_idx_fwd.shape[0])])
-        reverse_pair_dist_x_to_y = reverse_paired_points_x_to_y - reverse_paired_points_y_to_x
+        # reverse_paired_points_x_to_y = torch.stack([y[i][torch.flatten(true_idx_fwd[i])] for i in range(true_idx_fwd.shape[0])])
+        # reverse_pair_dist_x_to_y = reverse_paired_points_x_to_y - reverse_paired_points_y_to_x
 
-        reverse_pair_dist = reverse_pair_dist_y_to_x + reverse_pair_dist_x_to_y
-        reverse_pair_dist = torch.mul(torch.abs(reverse_pair_dist), torch.abs(reverse_pair_dist_y_to_x))
-        reverse_pair_dist = torch.sum(reverse_pair_dist)
-        #reverse_pair_dist = torch.sum(torch.square(reverse_pair_dist))
+        # reverse_pair_dist = reverse_pair_dist_y_to_x + reverse_pair_dist_x_to_y
+        # reverse_pair_dist = torch.mul(torch.abs(reverse_pair_dist), torch.abs(reverse_pair_dist_y_to_x))
+        # reverse_pair_dist = torch.sum(reverse_pair_dist)
+        # #reverse_pair_dist = torch.sum(torch.square(reverse_pair_dist))
         
-        pair_dist += reverse_pair_dist
+        # pair_dist += reverse_pair_dist
         
 
-        #bidirectional_dist = bidirectional_dist + pair_dist 
-        bidirectional_dist = pair_dist 
+        bidirectional_dist = bidirectional_dist + pair_dist*100
+        #bidirectional_dist = pair_dist 
         bidirectional_dist = bidirectional_dist / (batch_size)
         
     return bidirectional_dist

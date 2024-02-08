@@ -106,7 +106,6 @@ def elbow_correction(
 
 # multi element Adam with single loss
 # set direction weight to finetune with directional chamfer loss
-
 def chamfer_fine_tune(
     n_iter,
     step_size,
@@ -123,7 +122,154 @@ def chamfer_fine_tune(
     return_intermediate=False,
     k=1,
     direction_weight=None,
-    pair_loss=False
+    loss_func= "chamfer"
+):
+    # prepare data on gpu and setup optimiser
+    cuda = torch.device("cuda")
+    preds_copy = copy.deepcopy(preds)
+    scaled_original_preds = [scale_preds(pc.tolist(), cat) for pc in preds_copy]
+
+
+    preds_t = torch.tensor(preds, requires_grad=True, device=cuda)
+    cloud_t = torch.tensor(cloud, device=cuda)
+    optimiser = torch.optim.Adam([preds_t], lr=step_size)
+
+
+    # check initial loss
+    chamfer_loss, gen_cloud = get_chamfer_loss_tensor(
+        preds_t, cloud_t, cat, reduce=False, return_cloud=True
+    )
+    gen_cloud = gen_cloud.detach().cpu().numpy()
+    # print("intial loss", chamfer_loss)
+
+    intermediate_results = []
+
+    # iterative refinement with adam
+    for i in tqdm(range(n_iter)):
+        optimiser.zero_grad()
+        if return_intermediate:
+            intermediate_results.append(preds_t.clone().detach().cpu().numpy())
+
+        if direction_weight is None:
+            if loss_func == "chamfer":
+                chamfer_loss = get_chamfer_loss_tensor(
+                    preds_t,
+                    cloud_t,
+                    cat,
+                    alpha=alpha,
+                    robust=robust,
+                    delta=delta,
+                    bidirectional_robust=bidirectional_robust,
+                )
+            elif loss_func == "pair":
+                chamfer_loss = get_pair_loss_tensor(preds_t, cloud_t, cat)
+            elif loss_func == "emd":
+                chamfer_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)                
+        else:
+            chamfer_loss = get_chamfer_loss_directional_tensor(
+                preds_t,
+                cloud_t,
+                cat,
+                alpha=alpha,
+                robust=robust,
+                delta=delta,
+                bidirectional_robust=bidirectional_robust,
+                k=k,
+                direction_weight=direction_weight,
+            )
+
+        chamfer_loss.backward()
+        optimiser.step()
+        print(i, "loss", chamfer_loss.detach().cpu().numpy())  # , "preds", preds_t)
+
+    # check final loss
+    chamfer_loss, gen_cloud_mod = get_chamfer_loss_tensor(
+        preds_t, cloud_t, cat, reduce=False, return_cloud=True
+    )
+    gen_cloud_mod = gen_cloud_mod.detach().cpu().numpy()
+
+    # print("final loss", chamfer_loss)
+    modified_preds = preds_t.detach().cpu().numpy()
+
+    # visualise
+    if visualise:
+        error_count = 0
+        scaled_preds = [scale_preds(p.tolist(), cat) for p in modified_preds]
+        visualisers = []
+        cloud_visualisers = []
+
+        for i, p in enumerate(scaled_preds):
+            try:
+                v_orignal, _ = visualize_predictions(
+                    [cloud[i].transpose(1, 0).tolist()],
+                    cat,
+                    [scaled_original_preds[i]],
+                    blueprint,
+                    visualize=True,
+                )
+                v_modified, _ = visualize_predictions(
+                    [None, None, cloud[i].transpose(1, 0).tolist()],
+                    cat,
+                    [scaled_preds[i]],
+                    blueprint,
+                    visualize=True,
+                )
+                visualisers.append(v_orignal)
+                visualisers.append(v_modified)
+            except:
+                print("error", i)
+                error_count += 1
+                v_orignal, _ = visualize_predictions(
+                    [cloud[i].transpose(1, 0).tolist(), gen_cloud[i].tolist()],
+                    cat,
+                    [],
+                    blueprint,
+                    visualize=True,
+                )
+                v_modified, _ = visualize_predictions(
+                    [
+                        None,
+                        gen_cloud_mod[i].tolist(),
+                        cloud[i].transpose(1, 0).tolist(),
+                    ],
+                    cat,
+                    [],
+                    blueprint,
+                    visualize=True,
+                )
+                cloud_visualisers.append(v_orignal)
+                cloud_visualisers.append(v_modified)
+
+        #         return v_orignal,v_modified, modified_preds
+        print("errors ", error_count)
+        return cloud_visualisers, visualisers, modified_preds
+    else:
+        if return_intermediate:
+            return modified_preds, chamfer_loss, gen_cloud_mod, intermediate_results
+        else:
+            return modified_preds, chamfer_loss, gen_cloud_mod
+
+
+# multi element Adam with single loss
+# set direction weight to finetune with directional chamfer loss
+# includes additional fix for elbows which have thick edges
+def chamfer_fine_tune_elbow_fix(
+    n_iter,
+    step_size,
+    preds,
+    cloud,
+    cat,
+    blueprint,
+    alpha=1.0,
+    visualise=True,
+    elbow_fix=True,
+    robust=None,
+    delta=0.1,
+    bidirectional_robust=True,
+    return_intermediate=False,
+    k=1,
+    direction_weight=None,
+    loss_func= "chamfer"
 ):
     # prepare data on gpu and setup optimiser
     cuda = torch.device("cuda")
@@ -159,7 +305,7 @@ def chamfer_fine_tune(
             intermediate_results.append(preds_t.clone().detach().cpu().numpy())
 
         if direction_weight is None:
-            if pair_loss is False:
+            if loss_func == "chamfer":
                 chamfer_loss = get_chamfer_loss_tensor(
                     preds_t,
                     cloud_t,
@@ -169,13 +315,10 @@ def chamfer_fine_tune(
                     delta=delta,
                     bidirectional_robust=bidirectional_robust,
                 )
-            else:
-                chamfer_loss = get_pair_loss_tensor(
-                    preds_t,
-                    cloud_t,
-                    cat
-                )
-                
+            elif loss_func == "pair":
+                chamfer_loss = get_pair_loss_tensor(preds_t, cloud_t, cat)
+            elif loss_func == "emd":
+                chamfer_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)                
         else:
             chamfer_loss = get_chamfer_loss_directional_tensor(
                 preds_t,
