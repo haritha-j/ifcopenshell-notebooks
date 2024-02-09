@@ -224,3 +224,102 @@ def create_merged_dataset(
 
     with open(os.path.join(output_base, element_class, "metadata_new.json"), "w") as f:
         json.dump(metadata_new, f)
+
+
+def create_completion_dataset(
+    pcd_path,
+    output_base,
+    element_class,
+    num_scans,
+    density,
+    num_views=3,
+    test_split=0.1,
+    uniform_sampling=False,
+    multiple=True,
+):
+
+    # load data
+    scans = os.listdir(pcd_path)
+    unique_files = set()
+    for sc in scans:
+        element = int(sc.split("_")[0])
+        unique_files.add(element)
+
+    if multiple:
+        it_range = num_scans - num_views
+    else:
+        it_range = 1
+
+    # merge multiple views
+    count = 0
+    train_clouds = {}
+    train_gt = {}
+    test_clouds = {}
+    test_gt = {}
+    test_point = int(len(unique_files) * (1 - test_split))
+    # print(test_point, len(unique_files), sorted(unique_files))
+
+    for k, un in enumerate(tqdm(unique_files)):
+        
+        # create ground truth
+        gt = []
+        for i in range(num_scans):
+            file_path = os.path.join(
+                pcd_path, (str(un) + "_" + str(i) + ".pcd")
+            )
+            pcd = o3d.io.read_point_cloud(file_path)
+            gt.append(pcd.points)
+        merged_gt = np.vstack(gt)
+        
+        # create partial clouds
+        for i in range(it_range):
+            points = []
+            for j in range(num_views):
+                file_path = os.path.join(
+                    pcd_path, (str(un) + "_" + str(i + j) + ".pcd")
+                )
+                pcd = o3d.io.read_point_cloud(file_path)
+                points.append(pcd.points)
+
+            # merged.points = o3d.utility.Vector3dVector(np.vstack(points))
+            merged_points = np.vstack(points)
+
+            if k < test_point:
+                train_clouds[str(count)] = merged_points
+                train_gt[str(count)] = merged_gt
+            else:
+                test_clouds[str(count)] = merged_points
+                test_gt[str(count)] = merged_gt
+            count += 1
+
+    # resample and save_data
+    test_path = os.path.join(output_base, element_class, "test")
+    train_path = os.path.join(output_base, element_class, "train")
+    try:
+        os.mkdir(test_path)
+        os.mkdir(train_path)
+    except:
+        pass
+
+    for k in tqdm(train_clouds.keys()):
+        sampled_points = random_resample_cloud(
+            train_clouds[k], density, uniform_sampling
+        )
+        save_cloud(sampled_points, train_path, k)
+
+        sampled_points = random_resample_cloud(
+            train_gt[k], density, uniform_sampling
+        )
+        save_cloud(sampled_points, train_path, k+"_gt")
+
+    for k in tqdm(test_clouds.keys()):
+        sampled_points = random_resample_cloud(
+            test_clouds[k], density, uniform_sampling
+        )
+        save_cloud(sampled_points, test_path, k)
+
+        sampled_points = random_resample_cloud(
+            test_gt[k], density, uniform_sampling
+        )
+        save_cloud(sampled_points, test_path, k+"_gt")
+
