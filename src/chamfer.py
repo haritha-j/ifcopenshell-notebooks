@@ -1280,7 +1280,34 @@ def get_cloud_chamfer_loss_tensor(
     return bidirectional_dist
 
 
-def get_pair_loss_clouds_tensor(x, y, k=1, add_pair_loss=False):
+def farthest_point_sample_gpu(point, npoint):
+    """
+    Input:
+        xyz: pointcloud data, [N, D]
+        npoint: number of samples
+    Return:
+        centroids: sampled pointcloud index, [npoint, D]
+    """
+    cuda = torch.device("cuda")
+    N, D = point.shape
+    xyz = point[:, :3]
+    centroids = torch.zeros((npoint,), device=cuda, dtype=torch.long)
+    distance = torch.ones((N,), device=cuda, dtype=torch.double) * 1e10
+    farthest = np.random.randint(0, N)
+    for i in range(npoint):
+        centroids[i] = farthest
+        centroid = xyz[farthest, :]
+        dist = torch.sum((xyz - centroid) ** 2, -1)
+        mask = dist < distance
+        distance[mask] = dist[mask]
+        farthest = torch.argmax(distance, -1)
+    return centroids
+
+
+
+def get_pair_loss_clouds_tensor(x, y, k=1, add_pair_loss=False, it=0):
+    cuda = torch.device("cuda")
+    
     chamferDist = ChamferDistance()
     if not add_pair_loss:
         if k==1:
@@ -1303,7 +1330,7 @@ def get_pair_loss_clouds_tensor(x, y, k=1, add_pair_loss=False):
             x, y, bidirectional=True, return_nn=True, k=1
         )
         #print("d", nn[0].dists.grad_fn, nn[0].idx.grad_fn)
-        bidirectional_dist = torch.sum(nn[0].dists) + torch.sum(nn[1].dists)
+        bidirectional_dist = torch.sum(nn[1].dists) + torch.sum(nn[1].dists)
         batch_size, point_count, _ = x.shape
         
         true_idx_fwd = torch.gather(nn[0].idx, 1, nn[1].idx) # tgt[[src[match]]]
@@ -1317,11 +1344,12 @@ def get_pair_loss_clouds_tensor(x, y, k=1, add_pair_loss=False):
         pair_dist_y_to_x = paired_points_y_to_x - paired_points_x_to_y
 
         pair_dist = pair_dist_x_to_y + pair_dist_y_to_x
+        #print(pair_dist)
         pair_dist = torch.mul(torch.abs(pair_dist), torch.abs(pair_dist_x_to_y))
         pair_dist = torch.sum(pair_dist)
         #pair_dist = torch.sum(torch.square(pair_dist))
         
-        # # reverse direction
+        # reverse direction
         # reverse_paired_points_y_to_x = torch.stack([x[i][torch.flatten(nn[1].idx[i])] for i in range(nn[1].idx.shape[0])])
         # reverse_pair_dist_y_to_x = reverse_paired_points_y_to_x - y
 
@@ -1331,13 +1359,101 @@ def get_pair_loss_clouds_tensor(x, y, k=1, add_pair_loss=False):
         # reverse_pair_dist = reverse_pair_dist_y_to_x + reverse_pair_dist_x_to_y
         # reverse_pair_dist = torch.mul(torch.abs(reverse_pair_dist), torch.abs(reverse_pair_dist_y_to_x))
         # reverse_pair_dist = torch.sum(reverse_pair_dist)
-        # #reverse_pair_dist = torch.sum(torch.square(reverse_pair_dist))
+        #reverse_pair_dist = torch.sum(torch.square(reverse_pair_dist))
         
         # pair_dist += reverse_pair_dist
         
-
-        bidirectional_dist = bidirectional_dist + pair_dist*100
+        
+        print("dist", bidirectional_dist.item(), pair_dist.item())
+        bidirectional_dist = bidirectional_dist + pair_dist
         #bidirectional_dist = pair_dist 
         bidirectional_dist = bidirectional_dist / (batch_size)
+        
+    return bidirectional_dist
+
+
+# add jitter to the point correspondences in CD
+# NOTE: hard coded for batch_size = 1 only
+def get_jittery_cd_tensor(x, y, k=1, it=0):
+    cuda = torch.device("cuda")
+    chamferDist = ChamferDistance()
+
+    nn = chamferDist(
+        x, y, bidirectional=True, return_nn=True, k=1
+    )
+    #print("d", nn[0].dists.grad_fn, nn[0].idx.grad_fn)
+    bidirectional_dist = torch.sum(nn[1].dists) + torch.sum(nn[1].dists)
+    batch_size, point_count, _ = x.shape
+    
+    fps= False
+
+    #jitter_size = int(64*(0.001*(1000-it)))+1
+    jitter_size = 2
+    print("jitter", jitter_size)
+    perm1 = torch.randperm(x.size(1), device=cuda)[:jitter_size]
+    perm2 = torch.randperm(x.size(1), device=cuda)[:jitter_size].unsqueeze(1)
+    nn_copy = nn[0].idx.clone()
+    
+    if fps:
+        # farthest point sample
+        centroids  = farthest_point_sample_gpu(x[0], jitter_size)
+        nn_copy[0][perm1] = centroids.unsqueeze(1)
+    else:   
+        # randomly permute
+        for cloud in nn_copy:
+            cloud[perm1] = perm2
+    paired_points_x_to_y = torch.stack([y[i][torch.flatten(nn_copy[i])] for i in range(nn_copy.shape[0])])
+    pair_dist_x_to_y = paired_points_x_to_y - x
+    
+    # reverse
+    rperm1 = torch.randperm(y.size(1), device=cuda)[:jitter_size]
+    rperm2 = torch.randperm(y.size(1), device=cuda)[:jitter_size].unsqueeze(1)
+    rnn_copy = nn[1].idx.clone()
+            
+    if fps:
+        # farthest point sample
+        rcentroids  = farthest_point_sample_gpu(y[0], jitter_size)
+        rnn_copy[0][rperm1] = rcentroids.unsqueeze(1)
+    else:
+        #randomly permute
+        for cloud in rnn_copy:
+            cloud[rperm1] = rperm2
+    rpaired_points_x_to_y = torch.stack([x[i][torch.flatten(rnn_copy[i])] for i in range(rnn_copy.shape[0])])
+    rpair_dist_x_to_y = rpaired_points_x_to_y - y
+    
+    
+    pair_dist = torch.sum(torch.square(pair_dist_x_to_y)) + torch.sum(torch.square(rpair_dist_x_to_y))
+    
+    print("dist", bidirectional_dist.item(), pair_dist.item())
+    #bidirectional_dist = bidirectional_dist + pair_dist
+    bidirectional_dist = pair_dist 
+    bidirectional_dist = bidirectional_dist / (batch_size)
+        
+    return bidirectional_dist
+
+
+# # add self loss to CD
+def get_self_cd_tensor(x, y, thresh=0.001):
+    cuda = torch.device("cuda")
+    
+    chamferDist = ChamferDistance()
+
+    # add a loss term for mismatched pairs
+    nn = chamferDist(
+        x, y, bidirectional=True, return_nn=True, k=1
+    )
+    #print("d", nn[0].dists.grad_fn, nn[0].idx.grad_fn)
+    bidirectional_dist = torch.sum(nn[1].dists) + torch.sum(nn[0].dists)
+    batch_size, point_count, _ = x.shape
+    
+    # compute self loss for gen cloud
+    nn2 = chamferDist(y, y, bidirectional=False, return_nn=True, k=2)
+    self_loss = torch.sum(torch.square(torch.clamp(thresh - nn2[0].dists[:,:,1], min=0)))
+    #self_loss = torch.sum(torch.square((torch.abs(nn[0].dists[:,:,0] - nn2[0].dists[:,:,1]))))
+
+    print("dist", bidirectional_dist.item(), self_loss.item())
+    bidirectional_dist = bidirectional_dist + self_loss*1000
+    #bidirectional_dist = pair_dist 
+    bidirectional_dist = bidirectional_dist / (batch_size)
         
     return bidirectional_dist
