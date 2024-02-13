@@ -1432,28 +1432,78 @@ def get_jittery_cd_tensor(x, y, k=1, it=0):
     return bidirectional_dist
 
 
-# # add self loss to CD
-def get_self_cd_tensor(x, y, thresh=0.001):
+# # # add self loss to CD
+# def get_self_cd_tensor(x, y, thresh=0.001):
+#     cuda = torch.device("cuda")
+    
+#     chamferDist = ChamferDistance()
+
+#     # add a loss term for mismatched pairs
+#     nn = chamferDist(
+#         x, y, bidirectional=True, return_nn=True, k=1
+#     )
+#     #print("d", nn[0].dists.grad_fn, nn[0].idx.grad_fn)
+#     bidirectional_dist = torch.sum(nn[1].dists) + torch.sum(nn[0].dists)
+#     batch_size, point_count, _ = x.shape
+    
+#     # compute self loss for gen cloud
+#     nn2 = chamferDist(y, y, bidirectional=False, return_nn=True, k=2)
+#     self_loss = torch.sum(torch.square(torch.clamp(thresh - nn2[0].dists[:,:,1], min=0)))
+#     #self_loss = torch.sum(torch.square((torch.abs(nn[0].dists[:,:,0] - nn2[0].dists[:,:,1]))))
+
+#     print("dist", bidirectional_dist.item(), self_loss.item())
+#     bidirectional_dist = bidirectional_dist + self_loss*1000
+#     #bidirectional_dist = pair_dist 
+#     bidirectional_dist = bidirectional_dist / (batch_size)
+        
+#     return bidirectional_dist
+
+
+# compute reverse weighted chamfer loss
+# this is computed by calclating distance at a large k, then scaling each correspondences's 
+# distance by the reverse CD of that correspondence. The minimum of these is used to index 
+# the coorespondence to be chosen for measuring chamfer distance.
+# In other words, whenever a point in cloud B already has a close correspondence in cloud A,
+# it becomes less attractive to other points in cloud A, pushing points in cloud A to find 
+# other correspondences.
+def get_reverse_weighted_cd_tensor(x, y, k=16):
     cuda = torch.device("cuda")
     
     chamferDist = ChamferDistance()
-
     # add a loss term for mismatched pairs
     nn = chamferDist(
-        x, y, bidirectional=True, return_nn=True, k=1
+        x, y, bidirectional=True, return_nn=True, k=k
     )
-    #print("d", nn[0].dists.grad_fn, nn[0].idx.grad_fn)
-    bidirectional_dist = torch.sum(nn[1].dists) + torch.sum(nn[0].dists)
-    batch_size, point_count, _ = x.shape
+    #print("d", nn[0].dists.shape, nn[0].idx.shape)
     
-    # compute self loss for gen cloud
-    nn2 = chamferDist(y, y, bidirectional=False, return_nn=True, k=2)
-    self_loss = torch.sum(torch.square(torch.clamp(thresh - nn2[0].dists[:,:,1], min=0)))
-    #self_loss = torch.sum(torch.square((torch.abs(nn[0].dists[:,:,0] - nn2[0].dists[:,:,1]))))
+    scaling_factors_1 = nn[0].dists[:,:,0].unsqueeze(2).repeat(1, 1, k)
+    denominator_1 = torch.gather(scaling_factors_1, 1, nn[1].idx)
+    scaled_dist_1 = torch.div(nn[1].dists, denominator_1)
+    scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)
+    scaled_dist_1x = scaled_dist_1x - torch.ones_like(scaled_dist_1x)
+    
+    #min_dist_1 = torch.stack([nn[1].dists[0][i][i1[0][i]] for i in range(nn[1].dists[0].shape[0])]).unsqueeze(0)
+    min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+    #print("s", min_dist_1[0][100], nn[1].dists[0][100])
+
+    scaling_factors_0 = nn[1].dists[:,:,0].unsqueeze(2).repeat(1, 1, k)
+    denominator_0 = torch.gather(scaling_factors_0, 1, nn[0].idx)
+    scaled_dist_0 = torch.div(nn[0].dists, denominator_0)
+    scaled_dist_0x, i2 = torch.min(scaled_dist_0, 2)
+    scaled_dist_0x = scaled_dist_0x - torch.ones_like(scaled_dist_0x)
+    #print(i2.shape)
+    #min_dist_0 = torch.stack([nn[0].dists[0][i][i2[0][i]] for i in range(nn[0].dists[0].shape[0])]).unsqueeze(0)
+    min_dist_0 = torch.gather(nn[0].dists, 2, i2.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+ 
+    
+    bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
+    #self_loss = torch.sum(scaled_dist_1x) + torch.sum(scaled_dist_0x)
+    self_loss = torch.sum(min_dist_1) + torch.sum(min_dist_0)
+    batch_size, point_count, _ = x.shape
 
     print("dist", bidirectional_dist.item(), self_loss.item())
-    bidirectional_dist = bidirectional_dist + self_loss*1000
-    #bidirectional_dist = pair_dist 
+    #bidirectional_dist = bidirectional_dist #+ self_loss
+    bidirectional_dist = self_loss
     bidirectional_dist = bidirectional_dist / (batch_size)
         
     return bidirectional_dist
