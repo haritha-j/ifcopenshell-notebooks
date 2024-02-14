@@ -365,10 +365,10 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
 
         if k == 1:
             pairs = torch.flatten(nn[0].idx[0].detach().cpu()).numpy()
+            print("unique", len(np.unique(pairs)))
             #print("pairs", pairs)
         else:
             print("int", nn[0].idx[0][:,0].detach().cpu().numpy().shape)
             pairs = [nn[0].idx[0][:,i].detach().cpu().numpy() for i in range(k)]
-        print("pair", pairs[0].shape, len(pairs))
 
     return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=pairs, strength=strength, k=k, same_cloud=same_cloud)
