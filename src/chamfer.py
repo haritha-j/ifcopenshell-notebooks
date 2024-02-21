@@ -398,11 +398,11 @@ def generate_flange_cloud_tensor(preds_tensor, disc=True):
 
     # sample points in rings along axis
     if disc:
-        no_of_axis_points = 5
-        no_of_ring_points = 50
+        no_of_axis_points = 8
+        no_of_ring_points = 68
     else:
-        no_of_axis_points = 5
-        no_of_ring_points = 100
+        no_of_axis_points = 8
+        no_of_ring_points = 128
 
     ring_points1 = get_cylinder_points_tensor(
         no_of_axis_points, no_of_ring_points, r1, l1, p, d, x_axis, y_axis, tensor_size
@@ -412,6 +412,7 @@ def generate_flange_cloud_tensor(preds_tensor, disc=True):
     )
 
     if disc:
+        no_of_ring_points = 96
         disc_points = torch.zeros((tensor_size, no_of_ring_points * 10, 3)).cuda()
         for i in range(1, 6):
             disc_points[
@@ -456,8 +457,8 @@ def generate_pipe_cloud_tensor(preds_tensor):
 
     # sample points in rings along axis
     # TODO: dynamically balance ring and axis points
-    no_of_axis_points = 50
-    no_of_ring_points = 40
+    no_of_axis_points = 32
+    no_of_ring_points = 32
     ring_points = get_cylinder_points_tensor(
         no_of_axis_points, no_of_ring_points, r, l, p, d, x_axis, y_axis, tensor_size
     )
@@ -969,7 +970,6 @@ def get_emd_loss_tensor(
 ):
     src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
     target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
-
     emd, _ = calc_emd(target_pcd_tensor, src_pcd_tensor, iterations=iterations)
     return emd*0.01
 
@@ -1524,7 +1524,7 @@ def get_self_cd_tensor(x, y, thresh=0.001):
 # In other words, whenever a point in cloud B already has a close correspondence in cloud A,
 # it becomes less attractive to other points in cloud A, pushing points in cloud A to find 
 # other correspondences.
-def calc_reverse_weighted_cd_tensor(x, y, k=32, return_assignment=True):   
+def calc_reverse_weighted_cd_tensor(x, y, k=32, return_assignment=False):   
     chamferDist = ChamferDistance()
     # add a loss term for mismatched pairs
     nn = chamferDist(
@@ -1534,7 +1534,8 @@ def calc_reverse_weighted_cd_tensor(x, y, k=32, return_assignment=True):
     
     # get closest distances in reverse direction
     scaling_factors_1 = nn[0].dists[:,:,0].unsqueeze(2).repeat(1, 1, k)
-    denominator_1 = torch.gather(scaling_factors_1, 1, nn[1].idx)
+    denominator_1 = torch.square(torch.gather(scaling_factors_1, 1, nn[1].idx))
+    #denominator_1 = torch.gather(scaling_factors_1, 1, nn[1].idx)
     # divide by closest distance in reverse direction, selectfind minimum
     scaled_dist_1 = torch.div(nn[1].dists, denominator_1)
     scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)

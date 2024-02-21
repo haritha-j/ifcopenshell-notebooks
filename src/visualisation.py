@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from tqdm.notebook import tqdm
 
 from OCC.Core.gp import gp_Pnt
 from utils.JupyterIFCRenderer import JupyterIFCRenderer
@@ -378,7 +379,7 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
 
 # produce a colour map based on the density of a point cloud
 # parallelised version
-def visualise_density(clouds, colormap_name='cool'):
+def visualise_density(clouds, colormap_name='plasma'):
     # compute nearest neighbours to calculated density
     clouds = torch.tensor(clouds, device="cuda")
     chamferDist = ChamferDistance()

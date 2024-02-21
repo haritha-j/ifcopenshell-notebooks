@@ -185,12 +185,13 @@ def chamfer_fine_tune(
         print(i, "loss", chamfer_loss.detach().cpu().numpy())  # , "preds", preds_t)
 
     # check final loss
+    emd_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)
     chamfer_loss, gen_cloud_mod = get_chamfer_loss_tensor(
         preds_t, cloud_t, cat, reduce=False, return_cloud=True
     )
     gen_cloud_mod = gen_cloud_mod.detach().cpu().numpy()
 
-    print("final loss", torch.mean(chamfer_loss).item())
+    print("final loss Chamfer", torch.mean(chamfer_loss).item(), "EMD", emd_loss.item())
     modified_preds = preds_t.detach().cpu().numpy()
 
     # visualise
