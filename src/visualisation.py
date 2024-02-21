@@ -4,6 +4,8 @@ import math
 import copy
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 from OCC.Core.gp import gp_Pnt
 from utils.JupyterIFCRenderer import JupyterIFCRenderer
@@ -372,3 +374,31 @@ def visualise_loss(src_cld, tgt_cld, blueprint, loss="chamfer", strength=None, k
             pairs = [nn[0].idx[0][:,i].detach().cpu().numpy() for i in range(k)]
 
     return visualise_matching_points(src_cld, tgt_cld, blueprint, pairs=pairs, strength=strength, k=k, same_cloud=same_cloud)
+
+
+# produce a colour map based on the density of a point cloud
+# parallelised version
+def visualise_density(clouds, colormap_name='cool'):
+    # compute nearest neighbours to calculated density
+    clouds = torch.tensor(clouds, device="cuda")
+    chamferDist = ChamferDistance()
+    nn = chamferDist(clouds, clouds, bidirectional=False, return_nn=True, k=32)
+    
+    # measure normalised density
+    density = torch.mean(nn[0].dists[:,:,1:], dim=2)
+    eps = 0.00001
+    density = 1 / (density + eps)
+    high, low = torch.max(density), torch.min(density)
+    diff = high - low
+    density = (density - low) / diff
+    density = density.detach().cpu().numpy()
+    
+    # map colour
+    colours = np.zeros((density.shape[0], density.shape[1], 4))
+    colormap = plt.get_cmap(colormap_name)
+    for i, cloud in enumerate(tqdm(density)):
+        for j, pt in enumerate(cloud):
+            colours[i,j] = colormap(pt)
+
+    print(colours.shape, density.shape)
+    return colours

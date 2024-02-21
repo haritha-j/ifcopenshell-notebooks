@@ -164,7 +164,9 @@ def chamfer_fine_tune(
             elif loss_func == "pair":
                 chamfer_loss = get_pair_loss_tensor(preds_t, cloud_t, cat)
             elif loss_func == "emd":
-                chamfer_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)                
+                chamfer_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)   
+            elif loss_func == "reverse":
+                chamfer_loss = get_reverse_weighted_cd_tensor(preds_t, cloud_t, cat)           
         else:
             chamfer_loss = get_chamfer_loss_directional_tensor(
                 preds_t,
@@ -188,7 +190,7 @@ def chamfer_fine_tune(
     )
     gen_cloud_mod = gen_cloud_mod.detach().cpu().numpy()
 
-    # print("final loss", chamfer_loss)
+    print("final loss", torch.mean(chamfer_loss).item())
     modified_preds = preds_t.detach().cpu().numpy()
 
     # visualise
