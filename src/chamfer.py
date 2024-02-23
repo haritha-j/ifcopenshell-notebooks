@@ -1559,8 +1559,6 @@ def calc_reverse_weighted_cd_tensor(x, y, k=32, return_assignment=False):
     #min_dist_0 = torch.stack([nn[0].dists[0][i][i2[0][i]] for i in range(nn[0].dists[0].shape[0])]).unsqueeze(0)
     min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
  
-    print("s", i1.shape, nn[1].dists.shape)
-
     #bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
     #self_loss = torch.sum(scaled_dist_1x) + torch.sum(scaled_dist_0x)
     self_loss = torch.sum(min_dist_1) + torch.sum(min_dist_0)
@@ -1649,7 +1647,7 @@ def calc_neighbour_weighted_cd_tensor(x, y, k=32, return_assignment=True):
     #self_loss = torch.sum(min_dist_1) + torch.sum(min_dist_0)
     batch_size, point_count, _ = x.shape
 
-    print("dist", bidirectional_dist.item(), self_loss.item())
+    #print("dist", bidirectional_dist.item(), self_loss.item())
     #bidirectional_dist = bidirectional_dist #+ self_loss
     bidirectional_dist = self_loss
     bidirectional_dist = bidirectional_dist / (batch_size)
@@ -1773,6 +1771,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     )
     
     k2 = 32 # reduce k to check density in smaller patches
+    power = 16
     
     # measure density with itself
     nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
@@ -1790,7 +1789,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     density_xy = (density_xy - low) / diff
     w_x = torch.div(density_xy, density_x)
     #print("w", w_x.shape, w_x[0])
-    w_x = torch.pow(w_x, 16)
+    w_x = torch.pow(w_x, power)
     scaling_factors_1 = w_x.unsqueeze(2).repeat(1, 1, k)
     multiplier = torch.gather(scaling_factors_1, 1, nn[1].idx)
     
@@ -1813,7 +1812,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     density_yx = (density_yx - low) / diff
     w_x = torch.div(density_yx, density_y)
     #print("w", w_x.shape, w_x[0])
-    w_x = torch.pow(w_x, 8)
+    w_x = torch.pow(w_x, power)
     scaling_factors_0 = w_x.unsqueeze(2).repeat(1, 1, k)
     multiplier = torch.gather(scaling_factors_0, 1, nn[1].idx)
     
@@ -1832,7 +1831,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
 
     #print("dist", bidirectional_dist.item(), self_loss.item())
     bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
-    print("dist, balanced", bidirectional_dist.item(), balanced_cd.item())
+    #print("dist, balanced", bidirectional_dist.item(), balanced_cd.item())
     bidirectional_dist = balanced_cd
     bidirectional_dist = bidirectional_dist / (batch_size)
     
@@ -1845,6 +1844,90 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
         return bidirectional_dist
 
 
+# aside from matching by shortest distance, also match by density around each point
+# density for each point is measured by the sum of its distances to its k neighbours in the same cloud
+def calc_balanced_single_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
+    chamferDist = ChamferDistance()
+    eps = 0.00001
+
+    # add a loss term for mismatched pairs
+    nn = chamferDist(
+        x, y, bidirectional=True, return_nn=True, k=k
+    )
+    
+    k2 = 32 # reduce k to check density in smaller patches
+    power = 8
+    # measure density with itself
+    # nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
+    # density_x = torch.mean(nn_x[0].dists[:,:,1:], dim=2)
+    # density_x = 1 / (density_x + eps)
+    # high, low = torch.max(density_x), torch.min(density_x)
+    # diff = high - low
+    # density_x = (density_x - low) / diff
+    
+    # measure density with other cloud
+    density_xy = torch.mean(nn[0].dists[:,:,:k2], dim=2)
+    density_xy = 1 / (density_xy + eps)
+    high, low = torch.max(density_xy), torch.min(density_xy)
+    diff = high - low
+    density_xy = (density_xy - low) / diff
+    #w_x = torch.div(density_xy, density_x)
+    w_x = density_xy
+    #print("w", w_x.shape, w_x[0])
+    w_x = torch.pow(w_x, power)
+    scaling_factors_1 = w_x.unsqueeze(2).repeat(1, 1, k)
+    multiplier = torch.gather(scaling_factors_1, 1, nn[1].idx)
+    
+    scaled_dist_1 = torch.mul(nn[1].dists, multiplier)
+    scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)
+        
+    # measure density with itself
+    # nn_y = chamferDist(y, y, bidirectional=False, return_nn=True, k=k2)
+    # density_y = torch.mean(nn_y[0].dists[:,:,1:], dim=2)
+    # density_y = 1 / (density_y + eps)
+    # high, low = torch.max(density_y), torch.min(density_y)
+    # diff = high - low
+    # density_y = (density_y - low) / diff
+    
+    # measure density with other cloud
+    density_yx = torch.mean(nn[1].dists[:,:,:k2], dim=2)
+    density_yx = 1 / (density_yx + eps)
+    high, low = torch.max(density_yx), torch.min(density_yx)
+    diff = high - low
+    density_yx = (density_yx - low) / diff
+    #w_x = torch.div(density_yx, density_y)
+    w_x = density_yx
+    #print("w", w_x.shape, w_x[0])
+    w_x = torch.pow(w_x, power)
+    scaling_factors_0 = w_x.unsqueeze(2).repeat(1, 1, k)
+    multiplier = torch.gather(scaling_factors_0, 1, nn[1].idx)
+    
+    scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
+    scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
+    
+    #print("d", w_x.shape, i1.shape)
+    # reverse
+
+    min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+    min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+    
+    balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
+    #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
+    batch_size, point_count, _ = x.shape
+
+    #print("dist", bidirectional_dist.item(), self_loss.item())
+    bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
+    #print("dist, balanced", bidirectional_dist.item(), balanced_cd.item())
+    bidirectional_dist = balanced_cd
+    bidirectional_dist = bidirectional_dist / (batch_size)
+    
+    if return_assignment:
+        min_ind_1 = torch.gather(nn[1].idx, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0][0]
+        min_ind_0 = nn[0].idx[0,:,0]
+
+        return bidirectional_dist, [min_ind_0, min_ind_1]
+    else:
+        return bidirectional_dist
 
 
 # get any of chamfer, EMD, reverse or jittered chamfer loss

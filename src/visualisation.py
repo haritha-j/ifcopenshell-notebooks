@@ -397,9 +397,8 @@ def visualise_density(clouds, colormap_name='plasma'):
     # map colour
     colours = np.zeros((density.shape[0], density.shape[1], 4))
     colormap = plt.get_cmap(colormap_name)
-    for i, cloud in enumerate(tqdm(density)):
+    for i, cloud in enumerate(density):
         for j, pt in enumerate(cloud):
             colours[i,j] = colormap(pt)
 
-    print(colours.shape, density.shape)
     return colours
