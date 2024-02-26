@@ -1530,11 +1530,12 @@ def calc_reverse_weighted_cd_tensor(x, y, k=32, return_assignment=False):
     nn = chamferDist(
         x, y, bidirectional=True, return_nn=True, k=k
     )
+    pow = 8
     #print("d", nn[0].dists.shape, nn[0].idx.shape)
     
     # get closest distances in reverse direction
     scaling_factors_1 = nn[0].dists[:,:,0].unsqueeze(2).repeat(1, 1, k)
-    denominator_1 = torch.square(torch.gather(scaling_factors_1, 1, nn[1].idx))
+    denominator_1 = torch.pow(torch.gather(scaling_factors_1, 1, nn[1].idx), pow)
     #denominator_1 = torch.gather(scaling_factors_1, 1, nn[1].idx)
     # divide by closest distance in reverse direction, selectfind minimum
     scaled_dist_1 = torch.div(nn[1].dists, denominator_1)
@@ -1551,7 +1552,7 @@ def calc_reverse_weighted_cd_tensor(x, y, k=32, return_assignment=False):
     # reverse direction
     scaling_factors_0 = nn[1].dists[:,:,0].unsqueeze(2).repeat(1, 1, k)
     #denominator_0 = torch.gather(scaling_factors_0, 1, nn[0].idx)
-    denominator_0 = torch.square(torch.gather(scaling_factors_0, 1, nn[0].idx))
+    denominator_0 = torch.pow(torch.gather(scaling_factors_0, 1, nn[1].idx), pow)
     scaled_dist_0 = torch.div(nn[0].dists, denominator_0)
     scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
     #scaled_dist_0x = scaled_dist_0x - torch.ones_like(scaled_dist_0x)
@@ -1749,7 +1750,7 @@ def calc_pairing_probabilty_loss_tensor(x, y, k=32, return_assignment=True):
 
     batch_size, point_count, _ = x.shape
 
-    print("dist", bidirectional_dist.item(), probability_loss.item())
+    # print("dist", bidirectional_dist.item(), probability_loss.item())
     bidirectional_dist = bidirectional_dist + probability_loss
     #bidirectional_dist = probability_loss
     bidirectional_dist = bidirectional_dist / (batch_size)
@@ -1771,7 +1772,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     )
     
     k2 = 32 # reduce k to check density in smaller patches
-    power = 16
+    power = 8
     
     # measure density with itself
     nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
@@ -1782,7 +1783,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     density_x = (density_x - low) / diff
     
     # measure density with other cloud
-    density_xy = torch.mean(nn[0].dists[:,:,:k2], dim=2)
+    density_xy = torch.mean(nn[0].dists[:,:,:k2-1], dim=2)
     density_xy = 1 / (density_xy + eps)
     high, low = torch.max(density_xy), torch.min(density_xy)
     diff = high - low
@@ -1805,7 +1806,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     density_y = (density_y - low) / diff
     
     # measure density with other cloud
-    density_yx = torch.mean(nn[1].dists[:,:,:k2], dim=2)
+    density_yx = torch.mean(nn[1].dists[:,:,:k2-1], dim=2)
     density_yx = 1 / (density_yx + eps)
     high, low = torch.max(density_yx), torch.min(density_yx)
     diff = high - low
@@ -1814,7 +1815,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     #print("w", w_x.shape, w_x[0])
     w_x = torch.pow(w_x, power)
     scaling_factors_0 = w_x.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_0, 1, nn[1].idx)
+    multiplier = torch.gather(scaling_factors_0, 1, nn[0].idx)
     
     scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
     scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
@@ -1825,13 +1826,14 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
     min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
     
-    balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
+    balanced_cd = torch.sum(torch.sqrt(min_dist_1)) + torch.sum(torch.sqrt(min_dist_0))
     #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
     batch_size, point_count, _ = x.shape
 
     #print("dist", bidirectional_dist.item(), self_loss.item())
     bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
-    #print("dist, balanced", bidirectional_dist.item(), balanced_cd.item())
+    # print("cd", torch.sum(nn[1].dists[:,:,0]).item(), torch.sum(nn[0].dists[:, :, 0]).item())
+    # print("balanced", torch.sum(min_dist_1).item(), torch.sum(min_dist_0).item())
     bidirectional_dist = balanced_cd
     bidirectional_dist = bidirectional_dist / (batch_size)
     
@@ -1900,7 +1902,7 @@ def calc_balanced_single_chamfer_loss_tensor(x, y, k=32, return_assignment=False
     #print("w", w_x.shape, w_x[0])
     w_x = torch.pow(w_x, power)
     scaling_factors_0 = w_x.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_0, 1, nn[1].idx)
+    multiplier = torch.gather(scaling_factors_0, 1, nn[0].idx)
     
     scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
     scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
@@ -1928,6 +1930,23 @@ def calc_balanced_single_chamfer_loss_tensor(x, y, k=32, return_assignment=False
         return bidirectional_dist, [min_ind_0, min_ind_1]
     else:
         return bidirectional_dist
+
+
+def calc_cd_like_InfoV2(x, y):
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x, y, bidirectional=True, return_nn=True)
+        
+    dist1, dist2, idx1, idx2 = nn[0].dists, nn[1].dists, nn[0].idx, nn[1].idx
+    dist1 = torch.clamp(dist1, min=1e-9)
+    dist2 = torch.clamp(dist2, min=1e-9)
+    d1 = torch.sqrt(dist1)
+    d2 = torch.sqrt(dist2)
+
+    distances1 = - torch.log(torch.exp(-0.5 * d1)/(torch.sum(torch.exp(-0.5 * d1) + 1e-7,dim=-1).unsqueeze(-1))**1e-7)
+    distances2 = - torch.log(torch.exp(-0.5 * d2)/(torch.sum(torch.exp(-0.5 * d2) + 1e-7,dim=-1).unsqueeze(-1))**1e-7)
+
+    return (torch.sum(distances1) + torch.sum(distances2)) / 2
 
 
 # get any of chamfer, EMD, reverse or jittered chamfer loss
