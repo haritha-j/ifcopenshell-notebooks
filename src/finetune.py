@@ -166,7 +166,9 @@ def chamfer_fine_tune(
             elif loss_func == "emd":
                 chamfer_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)   
             elif loss_func == "reverse":
-                chamfer_loss = get_reverse_weighted_cd_tensor(preds_t, cloud_t, cat)           
+                chamfer_loss = get_reverse_weighted_cd_tensor(preds_t, cloud_t, cat)     
+            elif loss_func == "balanced":
+                chamfer_loss = get_balanced_chamfer_loss_tensor(preds_t, cloud_t, cat)           
         else:
             chamfer_loss = get_chamfer_loss_directional_tensor(
                 preds_t,

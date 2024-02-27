@@ -1530,7 +1530,7 @@ def calc_reverse_weighted_cd_tensor(x, y, k=32, return_assignment=False):
     nn = chamferDist(
         x, y, bidirectional=True, return_nn=True, k=k
     )
-    pow = 8
+    pow = 2
     #print("d", nn[0].dists.shape, nn[0].idx.shape)
     
     # get closest distances in reverse direction
@@ -1827,6 +1827,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
     
     balanced_cd = torch.sum(torch.sqrt(min_dist_1)) + torch.sum(torch.sqrt(min_dist_0))
+    #balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
     #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
     batch_size, point_count, _ = x.shape
 
@@ -1838,12 +1839,21 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     bidirectional_dist = bidirectional_dist / (batch_size)
     
     if return_assignment:
-        min_ind_1 = torch.gather(nn[1].idx, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0][0]
-        min_ind_0 = nn[0].idx[0,:,0]
+        min_ind_1 = torch.gather(nn[1].idx, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+        min_ind_0 = nn[0].idx[:,:,0]
 
-        return bidirectional_dist, [min_ind_0, min_ind_1]
+        return bidirectional_dist, [min_ind_0.detach().cpu().numpy(), min_ind_1.detach().cpu().numpy()]
     else:
         return bidirectional_dist
+
+
+def get_balanced_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, k=32):
+    src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
+    target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
+
+    dist = calc_balanced_chamfer_loss_tensor(target_pcd_tensor, src_pcd_tensor, k=k, 
+                                           return_assignment=False)
+    return dist
 
 
 # aside from matching by shortest distance, also match by density around each point
@@ -1932,7 +1942,7 @@ def calc_balanced_single_chamfer_loss_tensor(x, y, k=32, return_assignment=False
         return bidirectional_dist
 
 
-def calc_cd_like_InfoV2(x, y):
+def calc_cd_like_InfoV2(x, y, return_assignment=False):
     chamferDist = ChamferDistance()
     nn = chamferDist(
         x, y, bidirectional=True, return_nn=True)
@@ -1946,6 +1956,9 @@ def calc_cd_like_InfoV2(x, y):
     distances1 = - torch.log(torch.exp(-0.5 * d1)/(torch.sum(torch.exp(-0.5 * d1) + 1e-7,dim=-1).unsqueeze(-1))**1e-7)
     distances2 = - torch.log(torch.exp(-0.5 * d2)/(torch.sum(torch.exp(-0.5 * d2) + 1e-7,dim=-1).unsqueeze(-1))**1e-7)
 
+    if return_assignment:
+        return (torch.sum(distances1) + torch.sum(distances2)) / 2, [idx1.detach().cpu().numpy(), 
+                                                                     idx2.detach().cpu().numpy()]
     return (torch.sum(distances1) + torch.sum(distances2)) / 2
 
 
