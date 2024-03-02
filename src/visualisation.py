@@ -41,7 +41,7 @@ def rgb_to_hex(r, g, b):
 
 # visualize ifc model and point cloud simultaneously
 def vis_ifc_and_cloud(ifc, clouds):
-    viewer = JupyterIFCRenderer(ifc, size=(700, 550))
+    viewer = JupyterIFCRenderer(ifc, size=(400, 300))
     colours = ["#ff7070", "#70ff70", "#7070ff"]
     for i, cloud in enumerate(clouds):
         if cloud is not None:
