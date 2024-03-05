@@ -1762,7 +1762,7 @@ def calc_pairing_probabilty_loss_tensor(x, y, k=32, return_assignment=True):
 
 # aside from matching by shortest distance, also match by density around each point
 # density for each point is measured by the sum of its distances to its k neighbours in the same cloud
-def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
+def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False, return_dists=False):
     chamferDist = ChamferDistance()
     eps = 0.00001
 
@@ -1838,6 +1838,9 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
     bidirectional_dist = balanced_cd
     bidirectional_dist = bidirectional_dist / (batch_size)
     
+    if return_dists:
+        return min_dist_0, min_dist_1
+    
     if return_assignment:
         min_ind_1 = torch.gather(nn[1].idx, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
         min_ind_0 = torch.gather(nn[0].idx, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
@@ -1845,6 +1848,9 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
         return bidirectional_dist, [min_ind_0.detach().cpu().numpy(), min_ind_1.detach().cpu().numpy()]
     else:
         return bidirectional_dist
+    
+    
+
 # aside from matching by shortest distance, also match by density around each point
 # density for each point is measured by the sum of its distances to its k neighbours in the same cloud
 def calc_relative_density_loss_tensor(x, y, k=32, return_assignment=False):
