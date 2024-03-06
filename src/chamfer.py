@@ -1924,6 +1924,14 @@ def get_balanced_chamfer_loss_tensor(preds_tensor, src_pcd_tensor, cat, k=32):
     return dist
 
 
+def get_infocd_loss_tensor(preds_tensor, src_pcd_tensor, cat):
+    src_pcd_tensor = src_pcd_tensor.transpose(2, 1)
+    target_pcd_tensor = get_shape_cloud_tensor(preds_tensor, cat)
+
+    dist = calc_cd_like_InfoV2(target_pcd_tensor, src_pcd_tensor)
+    return dist
+
+
 # aside from matching by shortest distance, also match by density around each point
 # density for each point is measured by the sum of its distances to its k neighbours in the same cloud
 def calc_balanced_single_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
