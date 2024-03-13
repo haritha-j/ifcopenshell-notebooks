@@ -1,5 +1,3 @@
-%load_ext autoreload
-
 import numpy as np
 import os.path
 import torch
@@ -7,6 +5,7 @@ import pickle
 from tqdm.notebook import tqdm
 from chamferdist import ChamferDistance
 import open3d as o3d
+import gc
 
 from src.pointnet import *
 from src.visualisation import *
@@ -146,22 +145,22 @@ def run_morph(cld1_name, loss_func):
 
 # batch sphere optimisation (for metrics)
 
-def sphere_morph_metrics(loss_func, shapenet_path):
+def sphere_morph_metrics(loss_func, shapenet_path, save=True):
     # load shapenet test dataset
-    folders = os.listdir(shapenet_path)[7:8]
+    folders = os.listdir(shapenet_path)
     print(loss_func)
     cuda = torch.device("cuda")
     chamferDist = ChamferDistance()
 
-    iterations = 1001
-    stops = [i for i in range(0,1001,10)]
+    iterations = 501
+    stops = [i for i in range(0,iterations,10)]
     chamfer_results = np.zeros(len(stops))
     emd_results = np.zeros(len(stops))
     count = 0
     assignments_folders = []
     
     for fl in folders:
-        files = os.listdir(shapenet_path + fl)
+        files = os.listdir(shapenet_path + fl)[:10]
         clouds = []
         for cl in files:
             clouds.append(np.array(o3d.io.read_point_cloud(shapenet_path + fl + "/" + cl).points))
@@ -200,6 +199,9 @@ def sphere_morph_metrics(loss_func, shapenet_path):
     chamfer_results = chamfer_results/count
     emd_results = emd_results/count
 
-    # save results
-    with open("sphere/" + loss_func + "_metrics8.pkl", "wb") as f:
-        pickle.dump([chamfer_results, emd_results, assignments_folders], f)
+    if save:
+        # save results
+        with open("sphere/" + loss_func + "_metricsk32.32.pkl", "wb") as f:
+            pickle.dump([chamfer_results, emd_results, assignments_folders], f)
+    else:
+        return chamfer_results, emd_results

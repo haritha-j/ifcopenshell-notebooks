@@ -402,3 +402,23 @@ def visualise_density(clouds, colormap_name='plasma'):
             colours[i,j] = colormap(pt)
 
     return colours
+
+
+# general function to plot multiple sets of values
+def plot_dists(ax, losses, labels, title, xlabel="point cloud index", ylabel="distance (log)", 
+               log=True, limit=None, legend=True):
+    if limit == None:
+        limit = len(losses[0])
+    x = np.arange(0, limit*10, 10)
+
+    for i, loss in enumerate(losses):
+        if log:
+            ax.plot(x, np.log(loss[:limit]), label=labels[i])
+        else:
+            ax.plot(x, loss[:limit], label=labels[i])
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    if legend:
+        ax.legend()

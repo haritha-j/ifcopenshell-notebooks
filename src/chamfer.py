@@ -1765,14 +1765,15 @@ def calc_pairing_probabilty_loss_tensor(x, y, k=32, return_assignment=True):
 def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False, return_dists=False):
     chamferDist = ChamferDistance()
     eps = 0.00001
-
+    k=32
+    k2 = 32 # reduce k to check density in smaller patches
+    power = 4
     # add a loss term for mismatched pairs
     nn = chamferDist(
         x, y, bidirectional=True, return_nn=True, k=k
     )
     
-    k2 = 32 # reduce k to check density in smaller patches
-    power = 4
+ 
     
     # measure density with itself
     nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
