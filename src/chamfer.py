@@ -526,8 +526,10 @@ def generate_elbow_cloud_tensor(preds_tensor, return_elbow_edge=False):
     r_axis = torch.sqrt(torch.square(x) + torch.square(y))
 
     # sample points in rings along axis
-    no_of_axis_points = 128
-    no_of_ring_points = 16
+    #no_of_axis_points = 128
+    #no_of_ring_points = 16
+    no_of_axis_points = 32
+    no_of_ring_points = 64
     # ring_points = torch.zeros(1,1,1).cuda().expand(tensor_size, no_of_axis_points*no_of_ring_points, 3)
     # ring_points = torch.zeros((tensor_size, no_of_axis_points*no_of_ring_points, 3)).cuda()
     ring_points_list = []
@@ -1766,7 +1768,7 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False, retur
     chamferDist = ChamferDistance()
     eps = 0.00001
     k=32
-    k2 = 32 # reduce k to check density in smaller patches
+    k2 = 1 # reduce k to check density in smaller patches
     power = 4
     # add a loss term for mismatched pairs
     nn = chamferDist(
@@ -1933,6 +1935,37 @@ def get_infocd_loss_tensor(preds_tensor, src_pcd_tensor, cat):
     return dist
 
 
+# calculate robust loss for visualisation
+def calc_robust_chamfer_loss_tensor(x, y, k=32, return_assignment=False, kernel="huber", delta=0.01):
+    chamferDist = ChamferDistance()
+
+    nn = chamferDist(
+        x, y, bidirectional=True, return_nn=True, k=1
+    )
+        
+    chamfer_forward = nn[0].dists[..., 0]
+    chamfer_backward = nn[1].dists[..., 0]
+    
+    # identify non-robust correspondences
+    non_robust_fwd = x[chamfer_forward > delta]
+    non_robust_bwd = y[chamfer_backward > delta]
+    
+    if kernel == "huber":
+        chamfer_forward_a = torch.square(chamfer_forward)
+        chamfer_forward_b = torch.mul(torch.abs(chamfer_forward), 2*delta) - torch.full(chamfer_forward.shape, delta**2).cuda()
+        chamfer_forward = torch.where(chamfer_forward < delta, chamfer_forward_a, chamfer_forward_b)
+        
+        chamfer_backward_a = torch.square(chamfer_backward)
+        chamfer_backward_b = torch.mul(torch.abs(chamfer_backward), 2*delta) - torch.full(chamfer_backward.shape, delta**2).cuda()
+        chamfer_backward = torch.where(chamfer_backward < delta, chamfer_backward_a, chamfer_backward_b)
+    
+    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) #+ torch.sum(nn[0].dists[:, :, 0])
+    print("huber", torch.sum(chamfer_forward).item(), torch.sum(chamfer_backward).item())
+    print("d", torch.sum(nn[1].dists[:,:,0]).item(), torch.sum(nn[0].dists[:,:,0]).item())
+
+    return bidirectional_dist, non_robust_fwd, non_robust_bwd
+
+
 # aside from matching by shortest distance, also match by density around each point
 # density for each point is measured by the sum of its distances to its k neighbours in the same cloud
 def calc_balanced_single_chamfer_loss_tensor(x, y, k=32, return_assignment=False):
@@ -1941,82 +1974,87 @@ def calc_balanced_single_chamfer_loss_tensor(x, y, k=32, return_assignment=False
 
     # add a loss term for mismatched pairs
     nn = chamferDist(
-        x, y, bidirectional=True, return_nn=True, k=k
+        x, y, bidirectional=True, return_nn=True, k=1
     )
+
+    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) #+ torch.sum(nn[0].dists[:, :, 0])
+    print("d", torch.sum(nn[1].dists[:,:,0]).item(), torch.sum(nn[0].dists[:,:,0]).item())
+    return bidirectional_dist, None
     
-    k2 = 32 # reduce k to check density in smaller patches
-    power = 8
-    # measure density with itself
-    # nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
-    # density_x = torch.mean(nn_x[0].dists[:,:,1:], dim=2)
-    # density_x = 1 / (density_x + eps)
-    # high, low = torch.max(density_x), torch.min(density_x)
+    
+    # k2 = 32 # reduce k to check density in smaller patches
+    # power = 8
+    # # measure density with itself
+    # # nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
+    # # density_x = torch.mean(nn_x[0].dists[:,:,1:], dim=2)
+    # # density_x = 1 / (density_x + eps)
+    # # high, low = torch.max(density_x), torch.min(density_x)
+    # # diff = high - low
+    # # density_x = (density_x - low) / diff
+    
+    # # measure density with other cloud
+    # density_xy = torch.mean(nn[0].dists[:,:,:k2], dim=2)
+    # density_xy = 1 / (density_xy + eps)
+    # high, low = torch.max(density_xy), torch.min(density_xy)
     # diff = high - low
-    # density_x = (density_x - low) / diff
+    # density_xy = (density_xy - low) / diff
+    # #w_x = torch.div(density_xy, density_x)
+    # w_x = density_xy
+    # #print("w", w_x.shape, w_x[0])
+    # w_x = torch.pow(w_x, power)
+    # scaling_factors_1 = w_x.unsqueeze(2).repeat(1, 1, k)
+    # multiplier = torch.gather(scaling_factors_1, 1, nn[1].idx)
     
-    # measure density with other cloud
-    density_xy = torch.mean(nn[0].dists[:,:,:k2], dim=2)
-    density_xy = 1 / (density_xy + eps)
-    high, low = torch.max(density_xy), torch.min(density_xy)
-    diff = high - low
-    density_xy = (density_xy - low) / diff
-    #w_x = torch.div(density_xy, density_x)
-    w_x = density_xy
-    #print("w", w_x.shape, w_x[0])
-    w_x = torch.pow(w_x, power)
-    scaling_factors_1 = w_x.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_1, 1, nn[1].idx)
-    
-    scaled_dist_1 = torch.mul(nn[1].dists, multiplier)
-    scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)
+    # scaled_dist_1 = torch.mul(nn[1].dists, multiplier)
+    # scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)
         
-    # measure density with itself
-    # nn_y = chamferDist(y, y, bidirectional=False, return_nn=True, k=k2)
-    # density_y = torch.mean(nn_y[0].dists[:,:,1:], dim=2)
-    # density_y = 1 / (density_y + eps)
-    # high, low = torch.max(density_y), torch.min(density_y)
+    # # measure density with itself
+    # # nn_y = chamferDist(y, y, bidirectional=False, return_nn=True, k=k2)
+    # # density_y = torch.mean(nn_y[0].dists[:,:,1:], dim=2)
+    # # density_y = 1 / (density_y + eps)
+    # # high, low = torch.max(density_y), torch.min(density_y)
+    # # diff = high - low
+    # # density_y = (density_y - low) / diff
+    
+    # # measure density with other cloud
+    # density_yx = torch.mean(nn[1].dists[:,:,:k2], dim=2)
+    # density_yx = 1 / (density_yx + eps)
+    # high, low = torch.max(density_yx), torch.min(density_yx)
     # diff = high - low
-    # density_y = (density_y - low) / diff
+    # density_yx = (density_yx - low) / diff
+    # #w_x = torch.div(density_yx, density_y)
+    # w_x = density_yx
+    # #print("w", w_x.shape, w_x[0])
+    # w_x = torch.pow(w_x, power)
+    # scaling_factors_0 = w_x.unsqueeze(2).repeat(1, 1, k)
+    # multiplier = torch.gather(scaling_factors_0, 1, nn[0].idx)
     
-    # measure density with other cloud
-    density_yx = torch.mean(nn[1].dists[:,:,:k2], dim=2)
-    density_yx = 1 / (density_yx + eps)
-    high, low = torch.max(density_yx), torch.min(density_yx)
-    diff = high - low
-    density_yx = (density_yx - low) / diff
-    #w_x = torch.div(density_yx, density_y)
-    w_x = density_yx
-    #print("w", w_x.shape, w_x[0])
-    w_x = torch.pow(w_x, power)
-    scaling_factors_0 = w_x.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_0, 1, nn[0].idx)
+    # scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
+    # scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
     
-    scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
-    scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
-    
-    #print("d", w_x.shape, i1.shape)
-    # reverse
+    # #print("d", w_x.shape, i1.shape)
+    # # reverse
 
-    min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
-    min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+    # min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+    # min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
     
-    balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
-    #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
-    batch_size, point_count, _ = x.shape
+    # balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
+    # #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
+    # batch_size, point_count, _ = x.shape
 
-    #print("dist", bidirectional_dist.item(), self_loss.item())
-    bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
-    #print("dist, balanced", bidirectional_dist.item(), balanced_cd.item())
-    bidirectional_dist = balanced_cd
-    bidirectional_dist = bidirectional_dist / (batch_size)
+    # #print("dist", bidirectional_dist.item(), self_loss.item())
+    # bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
+    # #print("dist, balanced", bidirectional_dist.item(), balanced_cd.item())
+    # bidirectional_dist = balanced_cd
+    # bidirectional_dist = bidirectional_dist / (batch_size)
     
-    if return_assignment:
-        min_ind_1 = torch.gather(nn[1].idx, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0][0]
-        min_ind_0 = nn[0].idx[0,:,0]
+    # if return_assignment:
+    #     min_ind_1 = torch.gather(nn[1].idx, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0][0]
+    #     min_ind_0 = nn[0].idx[0,:,0]
 
-        return bidirectional_dist, [min_ind_0, min_ind_1]
-    else:
-        return bidirectional_dist
+    #     return bidirectional_dist, [min_ind_0, min_ind_1]
+    # else:
+    #     return bidirectional_dist
 
 
 def calc_cd_like_InfoV2(x, y, return_assignment=False):
