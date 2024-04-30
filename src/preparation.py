@@ -29,8 +29,7 @@ class Normalize(object):
 
         scaled_properties = scaled_properties / norm_factor
         position_properties = (position_properties - mean) / norm_factor
-
-        return (norm_pointcloud, scaled_properties, position_properties)
+        return (norm_pointcloud, scaled_properties, position_properties, mean, norm_factor)
 
 
 # trsansform the centerpoint of a cloud to origin
@@ -71,14 +70,7 @@ class RandomNoise(object):
 
 class ToTensor(object):
     def __call__(self, data):
-        pointcloud, scaled_properties, position_properties = data[0], data[1], data[2]
-        assert len(pointcloud.shape) == 2
-
-        return (
-            torch.from_numpy(pointcloud).float(),
-            torch.from_numpy(scaled_properties).float(),
-            torch.from_numpy(position_properties).float(),
-        )
+        return ([torch.from_numpy(i).float() if isinstance(i, np.ndarray) else i for i in data])
 
 
 def random_resample_cloud(points, density, uniform_sampling):

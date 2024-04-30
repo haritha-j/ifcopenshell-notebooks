@@ -160,7 +160,7 @@ def sphere_morph_metrics(loss_func, shapenet_path, save=True):
     assignments_folders = []
     
     for fl in folders:
-        files = os.listdir(shapenet_path + fl)[:10]
+        files = os.listdir(shapenet_path + fl)
         clouds = []
         for cl in files:
             clouds.append(np.array(o3d.io.read_point_cloud(shapenet_path + fl + "/" + cl).points))

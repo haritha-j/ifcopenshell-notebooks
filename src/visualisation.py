@@ -173,7 +173,7 @@ def visualize_predictions(
     if visualize:
         return vis_ifc_and_cloud(ifc, clouds), ifc
     else:
-        return ifc
+        return ifc, None
 
 
 def visualize_rotate(data):

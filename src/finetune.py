@@ -122,7 +122,8 @@ def chamfer_fine_tune(
     return_intermediate=False,
     k=1,
     direction_weight=None,
-    loss_func= "chamfer"
+    loss_func= "chamfer",
+    return_ifc=False
 ):
     # prepare data on gpu and setup optimiser
     cuda = torch.device("cuda")
@@ -189,13 +190,14 @@ def chamfer_fine_tune(
         print(i, "loss", chamfer_loss.detach().cpu().numpy())  # , "preds", preds_t)
 
     # check final loss
-    emd_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)
     chamfer_loss, gen_cloud_mod = get_chamfer_loss_tensor(
         preds_t, cloud_t, cat, reduce=False, return_cloud=True
     )
     gen_cloud_mod = gen_cloud_mod.detach().cpu().numpy()
+    #emd_loss = get_emd_loss_tensor(preds_t, cloud_t, cat)
 
-    print("final loss Chamfer", torch.mean(chamfer_loss).item(), "EMD", emd_loss.item())
+    #print("final loss Chamfer", torch.mean(chamfer_loss).item(), "EMD", emd_loss.item())
+    print("final loss Chamfer", torch.mean(chamfer_loss).item())
     modified_preds = preds_t.detach().cpu().numpy()
 
     # visualise
@@ -207,19 +209,20 @@ def chamfer_fine_tune(
 
         for i, p in enumerate(scaled_preds):
             try:
-                v_orignal, _ = visualize_predictions(
-                    [cloud[i].transpose(1, 0).tolist()],
-                    cat,
-                    [scaled_original_preds[i]],
-                    blueprint,
-                    visualize=True,
-                )
+                if not return_ifc:
+                    v_orignal, _ = visualize_predictions(
+                        [cloud[i].transpose(1, 0).tolist()],
+                        cat,
+                        [scaled_original_preds[i]],
+                        blueprint,
+                        visualize=(not return_ifc),
+                    )
                 v_modified, _ = visualize_predictions(
                     [None, None, cloud[i].transpose(1, 0).tolist()],
                     cat,
                     [scaled_preds[i]],
                     blueprint,
-                    visualize=True,
+                    visualize=(not return_ifc),
                 )
                 visualisers.append(v_orignal)
                 visualisers.append(v_modified)
@@ -231,7 +234,7 @@ def chamfer_fine_tune(
                     cat,
                     [],
                     blueprint,
-                    visualize=True,
+                    visualize=(not return_ifc),
                 )
                 v_modified, _ = visualize_predictions(
                     [
@@ -242,13 +245,15 @@ def chamfer_fine_tune(
                     cat,
                     [],
                     blueprint,
-                    visualize=True,
+                    visualize=(not return_ifc),
                 )
                 cloud_visualisers.append(v_orignal)
                 cloud_visualisers.append(v_modified)
 
         #         return v_orignal,v_modified, modified_preds
         print("errors ", error_count)
+        if return_ifc:
+            return visualisers
         return cloud_visualisers, visualisers, modified_preds
     else:
         if return_intermediate:

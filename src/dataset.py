@@ -145,6 +145,7 @@ class PointCloudData(Dataset):
         category="pipe",
         transform=default_transforms(),
         inference=False,
+        return_coefficients=False,
     ):
         self.root_dir = root_dir
         folders = [
@@ -157,6 +158,7 @@ class PointCloudData(Dataset):
             metadata = json.load(metadata_file)
         self.valid = valid
         self.inference = inference
+        self.return_coefficients = return_coefficients
         self.files = []
 
         new_dir = root_dir / Path(category) / folder
@@ -205,9 +207,11 @@ class PointCloudData(Dataset):
     def __preproc__(self, file, scaled_properties, position_properties):
         cloud = read_pcd(file)
         if self.transforms:
-            cloud, scaled_properties, position_properties = self.transforms(
+            cloud, scaled_properties, position_properties, mean, norm_factor = self.transforms(
                 (cloud, scaled_properties, position_properties)
             )
+        if self.return_coefficients:
+            return cloud, scaled_properties, position_properties,  mean, norm_factor
         return cloud, scaled_properties, position_properties
 
     def __getitem__(self, idx):
@@ -232,5 +236,9 @@ class PointCloudData(Dataset):
                 "id": id,
             }
         else:
-            pointcloud, _, _ = self.__preproc__(pcd_path, np.ones(10), np.ones(3))
-            return {"pointcloud": pointcloud, "id": id}
+            if self.return_coefficients:
+                pointcloud, _, _, mean, norm_factor = self.__preproc__(pcd_path, np.ones(10), np.ones(3))
+                return {"pointcloud": pointcloud, "id": id, "mean": mean, "norm_factor": norm_factor}
+            else:
+                pointcloud, _, _ = self.__preproc__(pcd_path, np.ones(10), np.ones(3))
+                return {"pointcloud": pointcloud, "id": id}
