@@ -44,7 +44,7 @@ def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[]
                                    dtype=torch.double, requires_grad=True)
     
     # optimise
-    optimizer = torch.optim.Adam([sphere_points], lr=learning_rate)
+    optimizer = torch.optim.Adam([sphere_points], lr=learning_rate, betas=(0.95, 0.999))
     intermediate, losses, assingments = [], [], []
     chamferDist = ChamferDistance()
     assignments = []
@@ -81,6 +81,8 @@ def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[]
             loss, assignment = calc_cd_like_InfoV2(src_pcd_tensor, sphere_points, return_assignment=True)
         elif loss_func == "density":
             loss = calc_relative_density_loss_tensor(src_pcd_tensor, sphere_points, return_assignment=False)
+        elif loss_func == "curvature":
+            loss = calc_balanced_curvature_loss_tensor(src_pcd_tensor, sphere_points, return_assignment=False)
         else:
             print("unspecified loss")
             
@@ -113,7 +115,7 @@ def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[]
     return intermediate, losses
 
 
-def run_morph(cld1_name, loss_func):
+def run_morph(cld1_name, loss_func, lr=0.01):
     cuda = torch.device("cuda")
     cld1 = np.array(o3d.io.read_point_cloud(cld1_name).points)
     src_pcd_tensor = torch.tensor([cld1], device=cuda)
@@ -124,7 +126,7 @@ def run_morph(cld1_name, loss_func):
 
 #     morphed, losses = morph_sphere(src_pcd_tensor, 64, iterations, 0.01, stops, loss_func=loss_func, 
 #                                    return_assignment=False)
-    morphed, losses = morph_sphere(src_pcd_tensor, 64, iterations, 0.01, stops, measure_consistency=False, 
+    morphed, losses = morph_sphere(src_pcd_tensor, 64, iterations, lr, stops, measure_consistency=False, 
                                    loss_func=loss_func, return_assignment=False)
     morphed = torch.flatten(morphed, start_dim=1, end_dim=2)
     morphed = morphed.cpu().detach().numpy()

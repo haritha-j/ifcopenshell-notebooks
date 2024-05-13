@@ -228,7 +228,9 @@ def create_completion_dataset(
     test_split=0.1,
     uniform_sampling=False,
     multiple=True,
-):
+    noise=False,
+    noise_coverage=0.4,
+    noise_factor=0.02,):
 
     # load data
     scans = os.listdir(pcd_path)
@@ -275,6 +277,14 @@ def create_completion_dataset(
 
             # merged.points = o3d.utility.Vector3dVector(np.vstack(points))
             merged_points = np.vstack(points)
+            if noise:
+                noisy_points = np.random.normal(0, noise_factor, (merged_points.shape))
+                subset = np.random.choice(
+                    range(merged_points.shape[0]),
+                    int(merged_points.shape[0] * noise_coverage),
+                    replace=False,
+                )
+                merged_points[subset] += noisy_points[subset]
 
             if k < test_point:
                 train_clouds[str(count)] = merged_points
