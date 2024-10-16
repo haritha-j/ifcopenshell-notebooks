@@ -401,6 +401,7 @@ def visualise_density(clouds, colormap_name='plasma'):
         for j, pt in enumerate(cloud):
             colours[i,j] = colormap(pt)
 
+    print("density map generated")
     return colours
 
 

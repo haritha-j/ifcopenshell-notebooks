@@ -1798,9 +1798,9 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False, retur
     #print("w", w_x.shape, w_x[0])
     w_x = torch.pow(w_x, power)
     scaling_factors_1 = w_x.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_1, 1, nn[1].idx)
+    multiplier1 = torch.gather(scaling_factors_1, 1, nn[1].idx)
     
-    scaled_dist_1 = torch.mul(nn[1].dists, multiplier)
+    scaled_dist_1 = torch.mul(nn[1].dists, multiplier1)
     scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)
         
     # measure density with itself
@@ -1821,9 +1821,9 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False, retur
     #print("w", w_x.shape, w_x[0])
     w_y = torch.pow(w_y, power)
     scaling_factors_0 = w_y.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_0, 1, nn[0].idx)
+    multiplier0 = torch.gather(scaling_factors_0, 1, nn[0].idx)
     
-    scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
+    scaled_dist_0 = torch.mul(nn[0].dists, multiplier0)
     scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
     
     #print("d", w_x.shape, i1.shape)
@@ -1832,17 +1832,22 @@ def calc_balanced_chamfer_loss_tensor(x, y, k=32, return_assignment=False, retur
     min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
     min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
     
+    #print("scaled dist", scaled_dist_0.shape, "min dist", min_dist_0.shape, "i0", i0.shape, "wy", w_y.shape)
+    
     balanced_cd = torch.sum(torch.sqrt(min_dist_1)) + torch.sum(torch.sqrt(min_dist_0))
+    
     #balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
     #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
     batch_size, point_count, _ = x.shape
 
     #print("dist", bidirectional_dist.item(), self_loss.item())
     bidirectional_dist = torch.sum(nn[1].dists[:,:,0]) + torch.sum(nn[0].dists[:, :, 0])
+    bidirectional_dist = bidirectional_dist / (batch_size * point_count)
     # print("cd", torch.sum(nn[1].dists[:,:,0]).item(), torch.sum(nn[0].dists[:, :, 0]).item())
-    # print("balanced", torch.sum(min_dist_1).item(), torch.sum(min_dist_0).item())
+    balanced_cd = balanced_cd / (batch_size * point_count)
+    #print("balanced", balanced_cd.item(), bidirectional_dist.item())
+
     bidirectional_dist = balanced_cd
-    bidirectional_dist = bidirectional_dist / (batch_size)
     
     if return_dists:
         return min_dist_0, min_dist_1
@@ -2466,3 +2471,358 @@ def calculate_3d_loss(x, y, loss_funcs, it=0, batch_size=None):
                 losses[loss_func] = get_jittery_cd_tensor(x, y, it=it).item()
     
     return losses
+
+
+# measure the distance between a point and its correspondence's corresponding point
+def calc_cyclic_loss_tensor(x, y, k=8, return_assignment=False, return_dists=False):
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x,
+        y,
+        bidirectional=True,
+        return_nn=True,
+        k=8
+    )
+    
+    print("nn", nn[0].dists.shape, nn[1].dists.shape)
+    
+    
+    bidirectional_dist = torch.sum(nn[0].dists) + torch.sum(nn[1].dists)
+    batch_size, point_count, _ = x.shape
+    #print("s", bidirectional_dist)
+    bidirectional_dist = bidirectional_dist / (batch_size * point_count)
+    true_idx_bwd = torch.gather(nn[1].idx, 1, nn[0].idx) # tgt[[src[match]]]
+    
+    paired_points_bwd = torch.stack([y[i][torch.flatten(nn[0].idx[i])] for i in range(nn[0].idx.shape[0])])
+    pair_dist_bwd = paired_points_bwd - x
+    paired_points_fwd = torch.stack([x[i][torch.flatten(true_idx_bwd[i])] for i in range(true_idx_bwd.shape[0])])
+    pair_dist_fwd = paired_points_fwd - paired_points_bwd
+    
+    #print("sp", pair_dist_bwd.shape, pair_dist_fwd.shape)
+    pair_dist = pair_dist_bwd + pair_dist_fwd
+    pair_dist = torch.sum(torch.square(pair_dist)) / (batch_size * point_count)*1000
+
+    print("nn", bidirectional_dist.item(), pair_dist.item())
+    return pair_dist #+ bidirectional_dist
+
+
+# measure the distance between a point and its correspondence's corresponding point
+def calc_continuous_cd_loss_tensor(x, y, k=8, return_assignment=False, return_dists=False):
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x,
+        y,
+        bidirectional=True,
+        return_nn=True,
+        k=8
+    )
+
+    softmaxed_0 = torch.nn.functional.softmax(1/nn[0].dists, dim=-1)
+    softmaxed_1 = torch.nn.functional.softmax(1/nn[1].dists, dim=-1)
+
+    weighted_dist = torch.sum(nn[0].dists * softmaxed_0) + torch.sum(nn[1].dists * softmaxed_1)
+    batch_size, point_count, _ = x.shape
+
+    #print("nn", softmaxed[0][0], nn[1].dists.shape)
+    weighted_dist = weighted_dist / (batch_size * point_count)
+
+
+
+    #print("s", bidirectional_dist)
+    true_idx_bwd = torch.gather(nn[1].idx, 1, nn[0].idx) # tgt[[src[match]]]
+
+    paired_points_fwd = torch.stack([x[i][torch.flatten(true_idx_bwd[i])] for i in range(true_idx_bwd.shape[0])])
+
+    #print("sp", pair_dist_bwd.shape, pair_dist_fwd.shape)
+    pair_dist = paired_points_fwd - x
+    pair_dist = torch.sum(torch.square(pair_dist)) / (batch_size * point_count)*1000
+
+    return weighted_dist
+
+
+
+# measure the distance between a point and its correspondence's corresponding point
+def calc_continuous_cyclic_loss_tensor(x, y, k=4, return_assignment=False, return_dists=False):
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x,
+        y,
+        bidirectional=True,
+        return_nn=True,
+        k=k
+    )
+
+    eps = 0.00001
+
+    softmaxed_0 = torch.nn.functional.softmax(1/(nn[0].dists+eps), dim=-1)
+    softmaxed_1 = torch.nn.functional.softmax(1/(nn[1].dists+eps), dim=-1)
+
+    weighted_dist = torch.sum(nn[0].dists * softmaxed_0) + torch.sum(nn[1].dists * softmaxed_1)
+    batch_size, point_count, _ = x.shape
+
+    #print("nn", softmaxed_0[0][0], nn[1].dists.shape)
+    weighted_dist = weighted_dist / (batch_size * point_count)
+
+
+
+    #print("s", bidirectional_dist)
+    # all_true_indices = []
+    # for j in range(k):
+    #     all_true_indices.append(torch.stack([torch.gather(nn[1].idx[:,:,i], 1, nn[0].idx[:,:,j]) for i in range(k)], dim=-1))
+
+    # all_true_indices = torch.stack(all_true_indices, dim=-1)
+    # print("tr", all_true_indices.shape)
+
+    true_idx_bwd = torch.stack([torch.gather(nn[1].idx[:,:,i], 1, nn[0].idx[:,:,0]) for i in range(k)], dim=-1)
+    paired_points_fwd = torch.stack([x[i][true_idx_bwd[i]] for i in range(true_idx_bwd.shape[0])])
+
+    #true_idx_bwd =[torch.gather(nn[1].idx[:,:,i], 1, nn[0].idx[:,:,0]) for i in range(k)]
+    #print("tr", true_idx_bwd.shape)
+    #print("tr", true_idx_bwd.shape, nn[0].idx[0][0], true_idx_bwd[0][10], nn[1].idx[0][nn[0].idx[0][10][0]])
+    #print("tr", true_idx_bwd.shape, x[0][true_idx_bwd[0]].shape)
+
+
+    #print("paired", paired_points_fwd.shape, x.shape, x.unsqueeze(2).repeat(1, 1, 8, 1).shape, softmaxed_1.shape)
+    #print("sp", pair_dist_bwd.shape, pair_dist_fwd.shape)
+
+    pair_dist = paired_points_fwd - x.unsqueeze(2).repeat(1, 1, k, 1)
+    pair_dist = torch.sum(torch.square(pair_dist), dim=-1)
+    pair_dist = pair_dist * softmaxed_1 * 10
+
+    pair_dist = torch.sum(pair_dist) / (batch_size * point_count)
+
+    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:,:,0])
+    bidirectional_dist = bidirectional_dist / (batch_size * point_count)
+
+    print("pair", pair_dist.item(), weighted_dist.item(), bidirectional_dist.item())
+
+
+    return pair_dist + weighted_dist
+
+
+# measure the distance between a point and its correspondence's corresponding point
+def calc_continuous_cyclic_loss_tensor2(x, y, k=8, return_assignment=False, return_dists=False):
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x,
+        y,
+        bidirectional=True,
+        return_nn=True,
+        k=k
+    )
+
+    softmaxed_0 = torch.nn.functional.softmax(1/nn[0].dists, dim=-1)
+    softmaxed_1 = torch.nn.functional.softmax(1/nn[1].dists, dim=-1)
+
+    weighted_dist = torch.sum(nn[0].dists * softmaxed_0) + torch.sum(nn[1].dists * softmaxed_1)
+    batch_size, point_count, _ = x.shape
+
+    #print("nn", softmaxed[0][0], nn[1].dists.shape)
+    weighted_dist = weighted_dist / (batch_size * point_count)
+
+
+
+    #print("s", bidirectional_dist)
+    #true_idx_bwd = torch.gather(nn[1].idx[:,:,7], 1, nn[0].idx[:,:,0]) # tgt[[src[match]]]
+    #true_idx_bwd = torch.stack([torch.gather(nn[1].idx[:,:,i], 1, nn[0].idx[:,:,0]) for i in range(k)], dim=-1)
+    
+    
+    
+    all_true_indices = []
+    for j in range(k):
+        all_true_indices.append(torch.stack([torch.gather(nn[1].idx[:,:,i], 1, nn[0].idx[:,:,j]) for i in range(k)], dim=-1))
+    
+    all_true_indices = torch.stack(all_true_indices, dim=-1)
+    
+    all_paired_points = []
+    for j in range(k):
+        all_paired_points.append(torch.stack([x[i][all_true_indices[i][:,:,j]] for i in range(all_true_indices.shape[0])]))
+    #paired_points_fwd = torch.stack([x[i][true_idx_bwd[i]] for i in range(true_idx_bwd.shape[0])])
+    all_paired_points = torch.stack(all_paired_points, dim=-2)
+    
+    
+    #print("tr", all_true_indices.shape, all_paired_points.shape, x.unsqueeze(2).unsqueeze(3).repeat(1, 1, k, k, 1).shape)
+    
+    
+    #true_idx_bwd =[torch.gather(nn[1].idx[:,:,i], 1, nn[0].idx[:,:,0]) for i in range(k)]
+    #print("tr", true_idx_bwd.shape)
+    # print("tr", true_idx_bwd.shape, nn[0].idx[0][0], true_idx_bwd[0][10], nn[1].idx[0][nn[0].idx[0][10][0]])
+    # print("tr", true_idx_bwd.shape, x[0][true_idx_bwd[0]].shape)
+
+
+    #paired_points_fwd = torch.stack([x[i][true_idx_bwd[i]] for i in range(true_idx_bwd.shape[0])])
+    #print("paired", paired_points_fwd.shape, x.shape, x.unsqueeze(2).repeat(1, 1, k, 1).shape, softmaxed_1.shape)
+    #print("sp", pair_dist_bwd.shape, pair_dist_fwd.shape)
+    
+    pair_dist = all_paired_points - x.unsqueeze(2).unsqueeze(3).repeat(1, 1, k, k, 1)
+    pair_dist = torch.sum(torch.square(pair_dist), dim=-1)
+    
+    #print("pair dist", pair_dist.shape, softmaxed_1.unsqueeze(-1).repeat(1, 1, 1, k).shape)
+    pair_dist = pair_dist * softmaxed_1.unsqueeze(-1).repeat(1, 1, 1, k)
+    pair_dist = torch.sum(pair_dist, dim=-1)
+    pair_dist = pair_dist * softmaxed_0
+    #print("pair", pair_dist.shape)
+
+    pair_dist = torch.sum(pair_dist) / (batch_size * point_count)
+    
+    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:,:,0])
+    bidirectional_dist = bidirectional_dist / (batch_size * point_count)
+    
+    print("dists", pair_dist.item(), bidirectional_dist.item(), weighted_dist.item())
+
+    return pair_dist + weighted_dist
+
+
+
+# measure the distance between a point and its correspondence's corresponding point
+def calc_continuous_dcd_tensor(x, y, k=8, return_assignment=False, return_dists=False):
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x,
+        y,
+        bidirectional=True,
+        return_nn=True,
+        k=k
+    )
+
+    eps = 0.00001
+    batch_size, point_count, _ = x.shape
+
+    softmaxed_0 = torch.nn.functional.softmax(1/(nn[0].dists+eps), dim=-1)
+    softmaxed_1 = torch.nn.functional.softmax(1/(nn[1].dists+eps), dim=-1)
+
+    point_weights_1 = torch.zeros(batch_size, point_count, dtype=torch.float64).cuda()
+    for i in range(batch_size):
+        point_weights_1[i].scatter_add_(0, nn[0].idx[i].flatten(), softmaxed_0[i].flatten())
+
+    point_weights_0 = torch.zeros(batch_size, point_count, dtype=torch.float64).cuda()
+    for i in range(batch_size):
+        point_weights_0[i].scatter_add_(0, nn[1].idx[i].flatten(), softmaxed_1[i].flatten())
+
+    #print("w", point_weights_1.shape)
+
+    # Extract necessary tensors from nn for better readability
+    idx_0 = nn[0].idx[:, :, 0]
+    dists_0 = nn[0].dists[:, :, 0]
+    idx_1 = nn[1].idx[:, :, 0]
+    dists_1 = nn[1].dists[:, :, 0]
+
+    # Use advanced indexing to gather point weights and calculate weighted distances
+    weighted_distances_0 = dists_0 / point_weights_1.gather(1, idx_0)
+    weighted_distances_1 = dists_1 / point_weights_0.gather(1, idx_1)
+
+    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:,:,0])
+    bidirectional_dist = bidirectional_dist / (batch_size * point_count)
+
+    weighted_dist = torch.sum(weighted_distances_0) + torch.sum(weighted_distances_1)
+    weighted_dist = weighted_dist / (batch_size * point_count) *10
+    
+    weights = torch.sum(torch.square(point_weights_0)) + torch.sum(torch.square(point_weights_1))
+    weights = weights / (batch_size * point_count) *0.1
+
+    print("wd", weighted_dist.item(), bidirectional_dist.item(),
+          "weights", weights.item(),
+          "std", torch.std(point_weights_0).item(), torch.std(point_weights_1).item(),
+          "sum", torch.sum(point_weights_0).item(), torch.sum(point_weights_1).item())
+
+    return bidirectional_dist + weights
+
+
+def calculate_equal_cd_loss_tensor(x, y, k=8, return_assignment=False, return_dists=False):
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x,
+        y,
+        bidirectional=True,
+        return_nn=True,
+        k=k
+    )
+
+    eps = 0.00001
+    batch_size, point_count, _ = x.shape
+    
+    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:,:,0])
+    bidirectional_dist = bidirectional_dist / (batch_size * point_count)
+    
+    equality_loss = torch.sum(torch.abs(nn[0].dists - nn[1].dists))
+    equality_loss = equality_loss / (batch_size * point_count)
+    
+    print("l", bidirectional_dist.item(), equality_loss.item())
+    
+    return bidirectional_dist + equality_loss
+
+
+
+def calc_dcd_correspondence_tensor(x, y, k=32, return_assignment=False, return_dists=False):
+
+    chamferDist = ChamferDistance()
+    nn = chamferDist(
+        x,
+        y,
+        bidirectional=True,
+        return_nn=True,
+        k=k
+    )
+
+    eps = 0.00001
+    batch_size, point_count, _ = x.shape
+
+    # softmaxed_0 = torch.nn.functional.softmax(1/(nn[0].dists+eps), dim=-1)
+    # softmaxed_1 = torch.nn.functional.softmax(1/(nn[1].dists+eps), dim=-1)
+    softmaxed_0 = torch.nn.functional.softmin(nn[0].dists, dim=-1)
+    softmaxed_1 = torch.nn.functional.softmin(nn[1].dists, dim=-1)
+
+    point_weights_1 = torch.zeros(batch_size, point_count, dtype=torch.float64).cuda()
+    for i in range(batch_size):
+        point_weights_1[i].scatter_add_(0, nn[0].idx[i].flatten(), softmaxed_0[i].flatten())
+
+    point_weights_0 = torch.zeros(batch_size, point_count, dtype=torch.float64).cuda()
+    for i in range(batch_size):
+        point_weights_0[i].scatter_add_(0, nn[1].idx[i].flatten(), softmaxed_1[i].flatten())
+
+    # Use advanced indexing to gather point weights and calculate weighted distances
+    corresponding_weights_0 = point_weights_1.unsqueeze(2).repeat(1,1,k).gather(1, nn[0].idx)
+    corresponding_weights_1 = point_weights_0.unsqueeze(2).repeat(1,1,k).gather(1, nn[1].idx)
+
+    # corresponding_weights_0 = torch.mul(nn[0].dists, corresponding_weights_0)
+    # corresponding_weights_1 = torch.mul(nn[1].dists, corresponding_weights_1)
+
+    _, i0 = torch.min(corresponding_weights_0, dim=2)
+    _, i1 = torch.min(corresponding_weights_1, dim=2)
+
+    min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+    min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+
+    # infoCD modification
+    dist1 = torch.clamp(min_dist_0, min=1e-9)
+    dist2 = torch.clamp(min_dist_1, min=1e-9)
+    d1 = torch.sqrt(dist1)
+    d2 = torch.sqrt(dist2)
+
+    distances1 = - torch.log(torch.exp(-0.5 * d1)/(torch.sum(torch.exp(-0.5 * d1) + 1e-7,dim=-1).unsqueeze(-1))**1e-7)
+    distances2 = - torch.log(torch.exp(-0.5 * d2)/(torch.sum(torch.exp(-0.5 * d2) + 1e-7,dim=-1).unsqueeze(-1))**1e-7)
+
+    infocd =  (torch.sum(distances1) + torch.sum(distances2)) / 2
+    infocd = infocd / (batch_size * point_count)
+
+    return infocd
+
+    # dcd = torch.sum(torch.sqrt(min_dist_1)) + torch.sum(torch.sqrt(min_dist_0))
+    # dcd = dcd / (batch_size * point_count)
+
+    # # corresponding_weights_1 = point_weights_0.gather(1, nn[1].idx)
+
+    # #print("corres", corresponding_weights_0.shape, i0.shape, min_dist_0.shape)
+
+    # bidirectional_dist = torch.sum(torch.sqrt(nn[0].dists[:,:,0])) + torch.sum(torch.sqrt(nn[1].dists[:,:,0]))
+    # bidirectional_dist = bidirectional_dist / (batch_size * point_count)
+
+    # print("dcd", dcd.item(), bidirectional_dist.item())
+
+    # return dcd

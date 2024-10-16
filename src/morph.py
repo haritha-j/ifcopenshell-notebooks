@@ -83,6 +83,8 @@ def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[]
             loss = calc_relative_density_loss_tensor(src_pcd_tensor, sphere_points, return_assignment=False)
         elif loss_func == "curvature":
             loss = calc_balanced_curvature_loss_tensor(src_pcd_tensor, sphere_points, return_assignment=False)
+        elif loss_func == "cyclic":
+            loss = calc_dcd_correspondence_tensor(src_pcd_tensor, sphere_points, return_assignment=False)
         else:
             print("unspecified loss")
             

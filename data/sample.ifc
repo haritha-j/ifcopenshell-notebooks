@@ -37,7 +37,7 @@ HEADER;
 ******************************************************************************************/
 FILE_DESCRIPTION(('ViewDefinition [DesignTransferView_V1.0]'),'2;1');
 FILE_NAME('0001','2017-08-01T00:56:32',(''),(''),'The EXPRESS Data Manager Version 5.02.0100.07 : 28 Aug 2013','20160225_1515(x64) - Exporter 17.0.416.0 - Alternate UI 17.12.14.0','');
-FILE_SCHEMA(('IFC4'));
+FILE_SCHEMA(('IFC4X3_RC2'));
 ENDSEC;
 
 DATA;

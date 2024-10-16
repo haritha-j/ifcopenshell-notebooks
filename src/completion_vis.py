@@ -44,14 +44,18 @@ def normalise_densities(density_sets):
     return densities[0], densities[1], densities[2], densities[3]
 
 
+
 # produce density colourmaps that are normalised with their pairs
 # represent density with colour and combine with point cloud
 def get_coloured_clouds(clouds, density, colormap_name='plasma_r'):
-    density = density.detach().cpu().numpy()
+    try:
+        density = density.detach().cpu().numpy()
+    except:
+        pass
     colours = np.zeros((density.shape[0], density.shape[1], 4))
     colormap = plt.get_cmap(colormap_name)
 
-    for i, cloud in enumerate(density):
+    for i, cloud in tqdm(enumerate(density)):
         for j, pt in enumerate(cloud):
             colours[i,j] = colormap(pt)
 
@@ -68,8 +72,7 @@ def get_coloured_clouds(clouds, density, colormap_name='plasma_r'):
     return pcds, colours
 
 
-def get_cloud_list_vcn(path, prefix, pred_bbox=False, pred_camera=False):
-    limit = 20
+def get_cloud_list_vcn(path, prefix, pred_bbox=False, pred_camera=False, pred_confidence=False, limit=100):
     cloud_sets = []
 
     for i in range(limit):
@@ -95,6 +98,16 @@ def get_cloud_list_vcn(path, prefix, pred_bbox=False, pred_camera=False):
                     clouds = predicted_camera
                 elif prefix == "gt_camera":
                     clouds = gt_camera
+                else:
+                    clouds = partial
+            if pred_confidence:
+                pred, partial, gt, confidence = pickle.load(f)
+                if prefix == "pred":
+                    clouds = pred
+                elif prefix == "gt":
+                    clouds = gt
+                elif prefix == "confidence":
+                    clouds = confidence
                 else:
                     clouds = partial
             else:
@@ -324,7 +337,8 @@ def add_camera_cone(geometries, camera, colour=[1,0,0], width=160, height=120, f
     geometries.extend([cone, wireframe])
 
 
-def visualize_point_clouds_with_bboxes_and_cameras(pc1, pc2, pc3=None, bboxes1=None, bboxes2=None, cameras1=None, cameras2=None):
+def visualize_point_clouds_with_bboxes_and_cameras(pc1, pc2=None, pc3=None, bboxes1=None, bboxes2=None, bboxes3=None,
+                                                   cameras1=None, cameras2=None, paint_preds=True):
     """
     Display pairs of point clouds with optional bounding boxes and cameras using Open3D.
 
@@ -336,28 +350,33 @@ def visualize_point_clouds_with_bboxes_and_cameras(pc1, pc2, pc3=None, bboxes1=N
     bboxes2 (np.ndarray, optional): Bounding boxes for pc2 with shape [b, 2, 3].
     cameras1 (np.ndarray, optional): First array of camera locations and axes with shape [b, 3, 2].
     cameras2 (np.ndarray, optional): Second array of camera locations and axes with shape [b, 3, 2].
-    width (int): Width of the camera image plane.
-    height (int): Height of the camera image plane.
-    focal_length (int): Focal length of the camera.
     """
-    b = pc1.shape[0]
+    b = len(pc1)
+    colours = [[255, 0, 0], [254, 162, 0], [2, 174, 174]]
+    colours = [[c / 255 for c in colour] for colour in colours]
 
     for i in range(b):
         # Create Open3D point clouds
-        pcd1 = o3d.geometry.PointCloud()
-        pcd1.points = o3d.utility.Vector3dVector(pc1[i])
-        pcd1.paint_uniform_color([1, 0, 0])  # Red color for the first point cloud
+        if paint_preds:
+            pcd1 = o3d.geometry.PointCloud()
+            pcd1.points = o3d.utility.Vector3dVector(pc1[i])
+            pcd1.paint_uniform_color(colours[0])  # Red color for the first point cloud
+        else:
+            pcd1 = pc1[i]
 
-        pcd2 = o3d.geometry.PointCloud()
-        pcd2.points = o3d.utility.Vector3dVector(pc2[i])
-        pcd2.paint_uniform_color([0, 0, 1])  # Blue color for the second point cloud
+        geometries = [pcd1]
 
-        geometries = [pcd1, pcd2]
+        if pc2 is not None:
+            geometries = [pcd1]
+            pcd2 = o3d.geometry.PointCloud()
+            pcd2.points = o3d.utility.Vector3dVector(pc2[i])
+            pcd2.paint_uniform_color(colours[1])  # Blue color for the second point cloud
+            geometries.append(pcd2)
 
         if pc3 is not None:
             pcd3 = o3d.geometry.PointCloud()
             pcd3.points = o3d.utility.Vector3dVector(pc3[i])
-            pcd3.paint_uniform_color([0, 1, 0])  # Green color for the third point cloud
+            pcd3.paint_uniform_color(colours[2])  # Green color for the third point cloud
             geometries.append(pcd3)
 
         # Add bounding boxes if provided
@@ -365,15 +384,22 @@ def visualize_point_clouds_with_bboxes_and_cameras(pc1, pc2, pc3=None, bboxes1=N
             bbox1_min = bboxes1[i, 0]
             bbox1_max = bboxes1[i, 1]
             bbox1 = o3d.geometry.AxisAlignedBoundingBox(min_bound=bbox1_min, max_bound=bbox1_max)
-            bbox1.color = (1, 0, 0)  # Red color for bbox1
+            bbox1.color = colours[0] # Red color for bbox1
             geometries.append(bbox1)
 
         if bboxes2 is not None:
             bbox2_min = bboxes2[i, 0]
             bbox2_max = bboxes2[i, 1]
             bbox2 = o3d.geometry.AxisAlignedBoundingBox(min_bound=bbox2_min, max_bound=bbox2_max)
-            bbox2.color = (0, 1, 0)  # Green color for bbox2
+            bbox2.color = colours[2]  # Green color for bbox2
             geometries.append(bbox2)
+
+        if bboxes3 is not None:
+            bbox3_min = bboxes3[i, 0]
+            bbox3_max = bboxes3[i, 1]
+            bbox3 = o3d.geometry.AxisAlignedBoundingBox(min_bound=bbox3_min, max_bound=bbox3_max)
+            bbox3.color = colours[1]  # blue color for bbox3
+            geometries.append(bbox3)
 
 
         if cameras1 is not None:
