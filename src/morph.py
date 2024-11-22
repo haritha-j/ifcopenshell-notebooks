@@ -18,7 +18,7 @@ from src.utils import *
 # total points = num_points**2
 def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[],
                  loss_func= "chamfer", measure_consistency=True, sphere=True, return_assignment=True):
-    
+
     cuda = torch.device("cuda")
     if sphere:
         # gnerate sphere
@@ -42,7 +42,7 @@ def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[]
     else:
         sphere_points = torch.rand(1, num_points**2, 3, device=cuda, 
                                    dtype=torch.double, requires_grad=True)
-    
+
     # optimise
     optimizer = torch.optim.Adam([sphere_points], lr=learning_rate, betas=(0.95, 0.999))
     intermediate, losses, assingments = [], [], []
@@ -51,7 +51,7 @@ def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[]
 
     for i in tqdm(range(iterations)):
         optimizer.zero_grad()
-        
+
         if loss_func == "chamfer":
             nn = chamferDist(
                 src_pcd_tensor, sphere_points, bidirectional=True, return_nn=True)
@@ -84,32 +84,32 @@ def morph_sphere(src_pcd_tensor, num_points, iterations, learning_rate, stops=[]
         elif loss_func == "curvature":
             loss = calc_balanced_curvature_loss_tensor(src_pcd_tensor, sphere_points, return_assignment=False)
         elif loss_func == "cyclic":
-            loss = calc_dcd_correspondence_tensor(src_pcd_tensor, sphere_points, return_assignment=False)
+            loss, assignment = calc_dcd_correspondence_tensor(src_pcd_tensor, sphere_points, return_assignment=True)
         else:
             print("unspecified loss")
-            
+
         #print("a", assignment[0].shape)
         loss.backward()
         optimizer.step()
         #print("iteration", i, "loss", loss.item())
-        
+
         if i in stops:
             intermediate.append(sphere_points.clone())
             losses.append(loss.item())
             if measure_consistency:
                 assignments.append(assignment)
-            
+
     # calculate final chamfer loss
     dist = chamferDist(
                 src_pcd_tensor, sphere_points, bidirectional=True)
     emd_loss, _ = calc_emd(sphere_points, src_pcd_tensor, 0.05, 50)
     print("final chamfer dist", dist.item(), "emd", emd_loss.item())
-    
+
     # save assignments for analysis
 #     if measure_consistency:
 #         with open("sphere/assignments_" + loss_func + ".pkl", "wb") as f:
 #             pickle.dump(assingments, f)
-            
+
     intermediate = torch.stack(intermediate)
     if return_assignment:
         assignments = assignments
@@ -157,7 +157,7 @@ def sphere_morph_metrics(loss_func, shapenet_path, save=True):
     chamferDist = ChamferDistance()
 
     iterations = 501
-    stops = [i for i in range(0,iterations,10)]
+    stops = [i for i in range(0,iterations,5)]
     chamfer_results = np.zeros(len(stops))
     emd_results = np.zeros(len(stops))
     count = 0
@@ -205,7 +205,7 @@ def sphere_morph_metrics(loss_func, shapenet_path, save=True):
 
     if save:
         # save results
-        with open("sphere/" + loss_func + "_metricsk32.32.pkl", "wb") as f:
+        with open("sphere/" + loss_func + "_metrics.pkl", "wb") as f:
             pickle.dump([chamfer_results, emd_results, assignments_folders], f)
     else:
         return chamfer_results, emd_results

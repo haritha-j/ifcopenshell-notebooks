@@ -24,7 +24,7 @@ from chamferdist import ChamferDistance
 from src.geometry import *
 from src.elements import *
 from src.utils import scale_preds
-from src.chamfer import *
+#from src.chamfer import *
 
 
 # covert rgb to hex value

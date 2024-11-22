@@ -72,7 +72,7 @@ def get_coloured_clouds(clouds, density, colormap_name='plasma_r'):
     return pcds, colours
 
 
-def get_cloud_list_vcn(path, prefix, pred_bbox=False, pred_camera=False, pred_confidence=False, limit=100):
+def get_cloud_list_vcn(path, prefix, pred_bbox=False, pred_camera=False, pred_confidence=False, limit=100, load_idx = False):
     cloud_sets = []
 
     for i in range(limit):
@@ -100,14 +100,19 @@ def get_cloud_list_vcn(path, prefix, pred_bbox=False, pred_camera=False, pred_co
                     clouds = gt_camera
                 else:
                     clouds = partial
-            if pred_confidence:
-                pred, partial, gt, confidence = pickle.load(f)
+            elif pred_confidence:
+                if load_idx:
+                    pred, partial, gt, confidence, idx = pickle.load(f)
+                else:
+                    pred, partial, gt, confidence = pickle.load(f)
                 if prefix == "pred":
                     clouds = pred
                 elif prefix == "gt":
                     clouds = gt
                 elif prefix == "confidence":
                     clouds = confidence
+                elif prefix == "idx":
+                        clouds = idx
                 else:
                     clouds = partial
             else:
@@ -118,7 +123,12 @@ def get_cloud_list_vcn(path, prefix, pred_bbox=False, pred_camera=False, pred_co
                     clouds = gt
                 else:
                     clouds = partial
-        cloud_sets.append(clouds.detach().cpu().numpy())
+        if prefix == "idx":
+            cloud_sets.append(clouds)
+        else:
+            cloud_sets.append(clouds.detach().cpu().numpy())
+    if prefix == "idx":
+        return cloud_sets
     cloud_sets = np.vstack(cloud_sets)
     print(cloud_sets.shape)
 
@@ -337,8 +347,13 @@ def add_camera_cone(geometries, camera, colour=[1,0,0], width=160, height=120, f
     geometries.extend([cone, wireframe])
 
 
+def rgb_to_float(rgb):
+    return [c / 255 for c in rgb]
+
+
 def visualize_point_clouds_with_bboxes_and_cameras(pc1, pc2=None, pc3=None, bboxes1=None, bboxes2=None, bboxes3=None,
-                                                   cameras1=None, cameras2=None, paint_preds=True):
+                                                   cameras1=None, cameras2=None, cameras3=None, 
+                                                   cameras4=None, paint_preds=True):
     """
     Display pairs of point clouds with optional bounding boxes and cameras using Open3D.
 
@@ -352,8 +367,8 @@ def visualize_point_clouds_with_bboxes_and_cameras(pc1, pc2=None, pc3=None, bbox
     cameras2 (np.ndarray, optional): Second array of camera locations and axes with shape [b, 3, 2].
     """
     b = len(pc1)
-    colours = [[255, 0, 0], [254, 162, 0], [2, 174, 174]]
-    colours = [[c / 255 for c in colour] for colour in colours]
+    colours = [[202, 168, 245], [251, 86, 7], [2, 174, 174]]
+    colours = [rgb_to_float(colour) for colour in colours]
 
     for i in range(b):
         # Create Open3D point clouds
@@ -403,9 +418,13 @@ def visualize_point_clouds_with_bboxes_and_cameras(pc1, pc2=None, pc3=None, bbox
 
 
         if cameras1 is not None:
-            add_camera_cone(geometries, cameras1[i], colour=[1, 0, 0])
+            add_camera_cone(geometries, cameras1[i], colour=rgb_to_float([239, 71, 111]))
         if cameras2 is not None:
-            add_camera_cone(geometries, cameras2[i], colour=[0, 1, 0])
+            add_camera_cone(geometries, cameras2[i], colour=rgb_to_float([255, 209, 102]))
+        if cameras3 is not None:
+            add_camera_cone(geometries, cameras3[i], colour=rgb_to_float([17, 138, 178]))
+        if cameras4 is not None:
+            add_camera_cone(geometries, cameras4[i], colour=rgb_to_float([6, 214, 160]))
 
         # Visualize
         o3d.visualization.draw_geometries(geometries)

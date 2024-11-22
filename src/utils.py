@@ -5,7 +5,7 @@ import json
 import pickle
 import open3d as o3d
 
-from src.chamfer import *
+#from src.chamfer import *
 from src.visualisation import *
 
 

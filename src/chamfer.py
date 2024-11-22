@@ -10,8 +10,8 @@ from src.visualisation import get_direction_from_trig
 from src.geometry import *
 from utils.EMD import emd_module as emd
 
-from pytorch3d.ops import points_normals
-from eindex import eindex
+#from pytorch3d.ops import points_normals
+#from eindex import eindex
 import einops
 
 # calculate approximate earth mover's distance
@@ -2090,11 +2090,11 @@ def calc_cd_like_InfoV2(x, y, return_assignment=False):
 
 
 
-from pytorch3d.ops import utils as pytorch3d_utils
-from pytorch3d.ops.points_normals import _disambiguate_vector_directions, estimate_pointcloud_local_coord_frames
-from pytorch3d.ops.knn import knn_points
+# from pytorch3d.ops import utils as pytorch3d_utils
+# from pytorch3d.ops.points_normals import _disambiguate_vector_directions, estimate_pointcloud_local_coord_frames
+# from pytorch3d.ops.knn import knn_points
 from typing import Tuple, TYPE_CHECKING, Union
-from pytorch3d.common.workaround import symeig3x3
+# from pytorch3d.common.workaround import symeig3x3
 
 
 def get_point_covariances_relative(
@@ -2143,315 +2143,315 @@ def get_point_covariances_relative(
     return covariances, k_nearest_neighbors
 
 
-# calculate eigen values and eigen vectors relative to points from a second point cloud
-def estimate_pointcloud_local_coord_frames_relative(
-    pointclouds: Union[torch.Tensor, "Pointclouds"],
-    targets: Union[torch.Tensor, "Pointclouds"],
-    neighborhood_size: int = 50,
-    disambiguate_directions: bool = True,
-    *,
-    use_symeig_workaround: bool = True,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Estimates the principal directions of curvature (which includes normals)
-    of a batch of `pointclouds`.
+# # calculate eigen values and eigen vectors relative to points from a second point cloud
+# def estimate_pointcloud_local_coord_frames_relative(
+#     pointclouds: Union[torch.Tensor, "Pointclouds"],
+#     targets: Union[torch.Tensor, "Pointclouds"],
+#     neighborhood_size: int = 50,
+#     disambiguate_directions: bool = True,
+#     *,
+#     use_symeig_workaround: bool = True,
+# ) -> Tuple[torch.Tensor, torch.Tensor]:
+#     """
+#     Estimates the principal directions of curvature (which includes normals)
+#     of a batch of `pointclouds`.
 
-    The algorithm first finds `neighborhood_size` nearest neighbors for each
-    point of the point clouds, followed by obtaining principal vectors of
-    covariance matrices of each of the point neighborhoods.
-    The main principal vector corresponds to the normals, while the
-    other 2 are the direction of the highest curvature and the 2nd highest
-    curvature.
+#     The algorithm first finds `neighborhood_size` nearest neighbors for each
+#     point of the point clouds, followed by obtaining principal vectors of
+#     covariance matrices of each of the point neighborhoods.
+#     The main principal vector corresponds to the normals, while the
+#     other 2 are the direction of the highest curvature and the 2nd highest
+#     curvature.
 
-    Note that each principal direction is given up to a sign. Hence,
-    the function implements `disambiguate_directions` switch that allows
-    to ensure consistency of the sign of neighboring normals. The implementation
-    follows the sign disabiguation from SHOT descriptors [1].
+#     Note that each principal direction is given up to a sign. Hence,
+#     the function implements `disambiguate_directions` switch that allows
+#     to ensure consistency of the sign of neighboring normals. The implementation
+#     follows the sign disabiguation from SHOT descriptors [1].
 
-    The algorithm also returns the curvature values themselves.
-    These are the eigenvalues of the estimated covariance matrices
-    of each point neighborhood.
+#     The algorithm also returns the curvature values themselves.
+#     These are the eigenvalues of the estimated covariance matrices
+#     of each point neighborhood.
 
-    Args:
-      **pointclouds**: Batch of 3-dimensional points of shape
-        `(minibatch, num_point, 3)` or a `Pointclouds` object.
-      **neighborhood_size**: The size of the neighborhood used to estimate the
-        geometry around each point.
-      **disambiguate_directions**: If `True`, uses the algorithm from [1] to
-        ensure sign consistency of the normals of neighboring points.
-      **use_symeig_workaround**: If `True`, uses a custom eigenvalue
-        calculation.
+#     Args:
+#       **pointclouds**: Batch of 3-dimensional points of shape
+#         `(minibatch, num_point, 3)` or a `Pointclouds` object.
+#       **neighborhood_size**: The size of the neighborhood used to estimate the
+#         geometry around each point.
+#       **disambiguate_directions**: If `True`, uses the algorithm from [1] to
+#         ensure sign consistency of the normals of neighboring points.
+#       **use_symeig_workaround**: If `True`, uses a custom eigenvalue
+#         calculation.
 
-    Returns:
-      **curvatures**: The three principal curvatures of each point
-        of shape `(minibatch, num_point, 3)`.
-        If `pointclouds` are of `Pointclouds` class, returns a padded tensor.
-      **local_coord_frames**: The three principal directions of the curvature
-        around each point of shape `(minibatch, num_point, 3, 3)`.
-        The principal directions are stored in columns of the output.
-        E.g. `local_coord_frames[i, j, :, 0]` is the normal of
-        `j`-th point in the `i`-th pointcloud.
-        If `pointclouds` are of `Pointclouds` class, returns a padded tensor.
+#     Returns:
+#       **curvatures**: The three principal curvatures of each point
+#         of shape `(minibatch, num_point, 3)`.
+#         If `pointclouds` are of `Pointclouds` class, returns a padded tensor.
+#       **local_coord_frames**: The three principal directions of the curvature
+#         around each point of shape `(minibatch, num_point, 3, 3)`.
+#         The principal directions are stored in columns of the output.
+#         E.g. `local_coord_frames[i, j, :, 0]` is the normal of
+#         `j`-th point in the `i`-th pointcloud.
+#         If `pointclouds` are of `Pointclouds` class, returns a padded tensor.
 
-    References:
-      [1] Tombari, Salti, Di Stefano: Unique Signatures of Histograms for
-      Local Surface Description, ECCV 2010.
-    """
+#     References:
+#       [1] Tombari, Salti, Di Stefano: Unique Signatures of Histograms for
+#       Local Surface Description, ECCV 2010.
+#     """
 
-    points_padded, num_points = pytorch3d_utils.convert_pointclouds_to_tensor(pointclouds)
-    targets_padded, target_num_points = pytorch3d_utils.convert_pointclouds_to_tensor(targets)
+#     points_padded, num_points = pytorch3d_utils.convert_pointclouds_to_tensor(pointclouds)
+#     targets_padded, target_num_points = pytorch3d_utils.convert_pointclouds_to_tensor(targets)
 
-    ba, N, dim = points_padded.shape
-    if dim != 3:
-        raise ValueError(
-            "The pointclouds argument has to be of shape (minibatch, N, 3)"
-        )
+#     ba, N, dim = points_padded.shape
+#     if dim != 3:
+#         raise ValueError(
+#             "The pointclouds argument has to be of shape (minibatch, N, 3)"
+#         )
 
-    if (num_points <= neighborhood_size).any():
-        raise ValueError(
-            "The neighborhood_size argument has to be"
-            + " >= size of each of the point clouds."
-        )
+#     if (num_points <= neighborhood_size).any():
+#         raise ValueError(
+#             "The neighborhood_size argument has to be"
+#             + " >= size of each of the point clouds."
+#         )
 
-    # undo global mean for stability
-    # TODO: replace with tutil.wmean once landed
-    pcl_mean = points_padded.sum(1) / num_points[:, None]
-    points_centered = points_padded - pcl_mean[:, None, :]
-    targets_centered = targets_padded - pcl_mean[:, None, :]
+#     # undo global mean for stability
+#     # TODO: replace with tutil.wmean once landed
+#     pcl_mean = points_padded.sum(1) / num_points[:, None]
+#     points_centered = points_padded - pcl_mean[:, None, :]
+#     targets_centered = targets_padded - pcl_mean[:, None, :]
 
-    # get the per-point covariance and nearest neighbors used to compute it
-    cov, knns = get_point_covariances_relative(points_centered, targets_centered, num_points, neighborhood_size)
+#     # get the per-point covariance and nearest neighbors used to compute it
+#     cov, knns = get_point_covariances_relative(points_centered, targets_centered, num_points, neighborhood_size)
 
-    # get the local coord frames as principal directions of
-    # the per-point covariance
-    # this is done with torch.symeig / torch.linalg.eigh, which returns the
-    # eigenvectors (=principal directions) in an ascending order of their
-    # corresponding eigenvalues, and the smallest eigenvalue's eigenvector
-    # corresponds to the normal direction; or with a custom equivalent.
-    if use_symeig_workaround:
-        curvatures, local_coord_frames = symeig3x3(cov, eigenvectors=True)
-    else:
-        curvatures, local_coord_frames = torch.linalg.eigh(cov)
+#     # get the local coord frames as principal directions of
+#     # the per-point covariance
+#     # this is done with torch.symeig / torch.linalg.eigh, which returns the
+#     # eigenvectors (=principal directions) in an ascending order of their
+#     # corresponding eigenvalues, and the smallest eigenvalue's eigenvector
+#     # corresponds to the normal direction; or with a custom equivalent.
+#     if use_symeig_workaround:
+#         curvatures, local_coord_frames = symeig3x3(cov, eigenvectors=True)
+#     else:
+#         curvatures, local_coord_frames = torch.linalg.eigh(cov)
 
-    # disambiguate the directions of individual principal vectors
-    if disambiguate_directions:
-        # disambiguate normal
-        n = _disambiguate_vector_directions(
-            points_centered, knns, local_coord_frames[:, :, :, 0]
-        )
-        # disambiguate the main curvature
-        z = _disambiguate_vector_directions(
-            points_centered, knns, local_coord_frames[:, :, :, 2]
-        )
-        # the secondary curvature is just a cross between n and z
-        y = torch.cross(n, z, dim=2)
-        # cat to form the set of principal directions
-        local_coord_frames = torch.stack((n, y, z), dim=3)
+#     # disambiguate the directions of individual principal vectors
+#     if disambiguate_directions:
+#         # disambiguate normal
+#         n = _disambiguate_vector_directions(
+#             points_centered, knns, local_coord_frames[:, :, :, 0]
+#         )
+#         # disambiguate the main curvature
+#         z = _disambiguate_vector_directions(
+#             points_centered, knns, local_coord_frames[:, :, :, 2]
+#         )
+#         # the secondary curvature is just a cross between n and z
+#         y = torch.cross(n, z, dim=2)
+#         # cat to form the set of principal directions
+#         local_coord_frames = torch.stack((n, y, z), dim=3)
 
-    return curvatures, local_coord_frames
+#     return curvatures, local_coord_frames
 
 
+
+# # calculate chamfer loss based on local curvature
+# def calc_curvature_loss_tensor(x, y, k=32, return_assignment=False):
+#     chamferDist = ChamferDistance()
+#     eps = 0.00001
+
+#     # add a loss term for mismatched pairs
+#     nn = chamferDist(
+#         x, y, bidirectional=True, return_nn=True
+#     )
+
+#     # eig_vals_x, eig_vects_x = points_normals.estimate_pointcloud_local_coord_frames(
+#     #     x, neighborhood_size=k)
+
+#     # eig_vals_y, eig_vects_y = points_normals.estimate_pointcloud_local_coord_frames(
+#     #     y, neighborhood_size=k)
+#     eig_vals_x, eig_vects_x = estimate_pointcloud_local_coord_frames(
+#         x, neighborhood_size=k)
+
+#     eig_vals_y, eig_vects_y = estimate_pointcloud_local_coord_frames(
+#         y, neighborhood_size=k)
+
+#     corresponding_y_vals = eindex(eig_vals_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues")
+#     corresponding_x_vals = eindex(eig_vals_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues")
+
+#     # corresponding_y_vects = eindex(eig_vects_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
+#     # corresponding_x_vects = eindex(eig_vects_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
+#     #print("x", x.shape, nn[0].dists.shape, nn[0].dists.shape, torch.squeeze(nn[1].idx, dim=-1).shape)
+
+#     #print("sample eigen", eig_vects_x[0,:4,:,:], eig_vals_x[0,:4])
+
+#     eigen_val_dist_y = torch.sum(torch.square(eig_vals_x - corresponding_y_vals))
+#     eigen_val_dist_x = torch.sum(torch.square(eig_vals_y - corresponding_x_vals))
+
+#     # eigen_vect_dist_y = torch.sum(torch.square(eig_vects_x - corresponding_y_vects))
+#     # eigen_vect_dist_x = torch.sum(torch.square(eig_vects_y - corresponding_x_vects))
+
+#     # # calculate dot product between eigenvectors
+#     # dot_product_y = einops.einsum(eig_vects_x, corresponding_y_vects, "b n p q, b n p q -> b n p")
+#     # # ignore direction and take absolute value
+#     # dot_product_y = torch.sum(1. - torch.abs(dot_product_y))
+#     # dot_product_x = einops.einsum(eig_vects_y, corresponding_x_vects, "b n p q, b n p q -> b n p")
+#     # # ignore direction and take absolute value
+#     # dot_product_x = torch.sum(1. - torch.abs(dot_product_x))
+#     # #print("dot", dot_product_x)
+
+#     #corresponding_y_points = eindex(x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] xyz")
+#     #print("corresponding shape", corresponding_y_vals.shape, corresponding_y_vects.shape)
+#     #print("mean", eigen_val_dist_x)
+
+#     #curvature_loss = (dot_product_x + dot_product_y)/1000 + (eigen_val_dist_x + eigen_val_dist_y)*1000
+#     #curvature_loss = (eigen_val_dist_x + eigen_val_dist_y)*1000 + (eigen_vect_dist_x + eigen_vect_dist_y)/1000
+#     curvature_loss = (eigen_val_dist_x + eigen_val_dist_y)*1000
+
+#     #print("curvature loss", curvature_loss)
+
+#     #print("eig_vals_x", eig_vals_x.shape, eig_vects_x.shape, "eig_vals_y", eig_vals_y.shape, eig_vects_y.shape)
+
+#     bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:, :, 0])
+#     print("d", bidirectional_dist.item(), curvature_loss)
+
+#     return curvature_loss + bidirectional_dist
+#     #return bidirectional_dist
 
 # calculate chamfer loss based on local curvature
-def calc_curvature_loss_tensor(x, y, k=32, return_assignment=False):
-    chamferDist = ChamferDistance()
-    eps = 0.00001
+# def calc_balanced_curvature_loss_tensor(x, y, k=32, return_assignment=False):
 
-    # add a loss term for mismatched pairs
-    nn = chamferDist(
-        x, y, bidirectional=True, return_nn=True
-    )
-
-    # eig_vals_x, eig_vects_x = points_normals.estimate_pointcloud_local_coord_frames(
-    #     x, neighborhood_size=k)
-
-    # eig_vals_y, eig_vects_y = points_normals.estimate_pointcloud_local_coord_frames(
-    #     y, neighborhood_size=k)
-    eig_vals_x, eig_vects_x = estimate_pointcloud_local_coord_frames(
-        x, neighborhood_size=k)
-
-    eig_vals_y, eig_vects_y = estimate_pointcloud_local_coord_frames(
-        y, neighborhood_size=k)
-
-    corresponding_y_vals = eindex(eig_vals_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues")
-    corresponding_x_vals = eindex(eig_vals_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues")
-
-    # corresponding_y_vects = eindex(eig_vects_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
-    # corresponding_x_vects = eindex(eig_vects_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
-    #print("x", x.shape, nn[0].dists.shape, nn[0].dists.shape, torch.squeeze(nn[1].idx, dim=-1).shape)
-
-    #print("sample eigen", eig_vects_x[0,:4,:,:], eig_vals_x[0,:4])
-
-    eigen_val_dist_y = torch.sum(torch.square(eig_vals_x - corresponding_y_vals))
-    eigen_val_dist_x = torch.sum(torch.square(eig_vals_y - corresponding_x_vals))
-
-    # eigen_vect_dist_y = torch.sum(torch.square(eig_vects_x - corresponding_y_vects))
-    # eigen_vect_dist_x = torch.sum(torch.square(eig_vects_y - corresponding_x_vects))
-
-    # # calculate dot product between eigenvectors
-    # dot_product_y = einops.einsum(eig_vects_x, corresponding_y_vects, "b n p q, b n p q -> b n p")
-    # # ignore direction and take absolute value
-    # dot_product_y = torch.sum(1. - torch.abs(dot_product_y))
-    # dot_product_x = einops.einsum(eig_vects_y, corresponding_x_vects, "b n p q, b n p q -> b n p")
-    # # ignore direction and take absolute value
-    # dot_product_x = torch.sum(1. - torch.abs(dot_product_x))
-    # #print("dot", dot_product_x)
-
-    #corresponding_y_points = eindex(x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] xyz")
-    #print("corresponding shape", corresponding_y_vals.shape, corresponding_y_vects.shape)
-    #print("mean", eigen_val_dist_x)
-
-    #curvature_loss = (dot_product_x + dot_product_y)/1000 + (eigen_val_dist_x + eigen_val_dist_y)*1000
-    #curvature_loss = (eigen_val_dist_x + eigen_val_dist_y)*1000 + (eigen_vect_dist_x + eigen_vect_dist_y)/1000
-    curvature_loss = (eigen_val_dist_x + eigen_val_dist_y)*1000
-
-    #print("curvature loss", curvature_loss)
-
-    #print("eig_vals_x", eig_vals_x.shape, eig_vects_x.shape, "eig_vals_y", eig_vals_y.shape, eig_vects_y.shape)
-
-    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:, :, 0])
-    print("d", bidirectional_dist.item(), curvature_loss)
-
-    return curvature_loss + bidirectional_dist
-    #return bidirectional_dist
-
-# calculate chamfer loss based on local curvature
-def calc_balanced_curvature_loss_tensor(x, y, k=32, return_assignment=False):
-
-    chamferDist = ChamferDistance()
+#     chamferDist = ChamferDistance()
     
     
     
     
-    eps = 0.00001
-    k2 = 32 # reduce k to check density in smaller patches
-    power = 2
-    # add a loss term for mismatched pairs
-    nn = chamferDist(
-        x, y, bidirectional=True, return_nn=True, k=k
-    )
+#     eps = 0.00001
+#     k2 = 32 # reduce k to check density in smaller patches
+#     power = 2
+#     # add a loss term for mismatched pairs
+#     nn = chamferDist(
+#         x, y, bidirectional=True, return_nn=True, k=k
+#     )
 
-    # measure density with itself
-    nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
-    density_x = torch.mean(nn_x[0].dists[:,:,1:], dim=2)
-    density_x = 1 / (density_x + eps)
-    high, low = torch.max(density_x), torch.min(density_x)
-    diff = high - low
-    density_x = (density_x - low) / diff
+#     # measure density with itself
+#     nn_x = chamferDist(x, x, bidirectional=False, return_nn=True, k=k2)
+#     density_x = torch.mean(nn_x[0].dists[:,:,1:], dim=2)
+#     density_x = 1 / (density_x + eps)
+#     high, low = torch.max(density_x), torch.min(density_x)
+#     diff = high - low
+#     density_x = (density_x - low) / diff
     
-    # measure density with other cloud
-    density_xy = torch.mean(nn[0].dists[:,:,:k2-1], dim=2)
-    density_xy = 1 / (density_xy + eps)
-    high, low = torch.max(density_xy), torch.min(density_xy)
-    diff = high - low
-    density_xy = (density_xy - low) / diff
-    w_x = torch.div(density_xy, density_x)
-    #print("w", w_x.shape, w_x[0])
-    w_x = torch.pow(w_x, power)
-    scaling_factors_1 = w_x.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_1, 1, nn[1].idx)
+#     # measure density with other cloud
+#     density_xy = torch.mean(nn[0].dists[:,:,:k2-1], dim=2)
+#     density_xy = 1 / (density_xy + eps)
+#     high, low = torch.max(density_xy), torch.min(density_xy)
+#     diff = high - low
+#     density_xy = (density_xy - low) / diff
+#     w_x = torch.div(density_xy, density_x)
+#     #print("w", w_x.shape, w_x[0])
+#     w_x = torch.pow(w_x, power)
+#     scaling_factors_1 = w_x.unsqueeze(2).repeat(1, 1, k)
+#     multiplier = torch.gather(scaling_factors_1, 1, nn[1].idx)
     
-    scaled_dist_1 = torch.mul(nn[1].dists, multiplier)
-    scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)
+#     scaled_dist_1 = torch.mul(nn[1].dists, multiplier)
+#     scaled_dist_1x, i1 = torch.min(scaled_dist_1, 2)
         
-    # measure density with itself
-    nn_y = chamferDist(y, y, bidirectional=False, return_nn=True, k=k2)
-    density_y = torch.mean(nn_y[0].dists[:,:,1:], dim=2)
-    density_y = 1 / (density_y + eps)
-    high, low = torch.max(density_y), torch.min(density_y)
-    diff = high - low
-    density_y = (density_y - low) / diff
+#     # measure density with itself
+#     nn_y = chamferDist(y, y, bidirectional=False, return_nn=True, k=k2)
+#     density_y = torch.mean(nn_y[0].dists[:,:,1:], dim=2)
+#     density_y = 1 / (density_y + eps)
+#     high, low = torch.max(density_y), torch.min(density_y)
+#     diff = high - low
+#     density_y = (density_y - low) / diff
     
-    # measure density with other cloud
-    density_yx = torch.mean(nn[1].dists[:,:,:k2-1], dim=2)
-    density_yx = 1 / (density_yx + eps)
-    high, low = torch.max(density_yx), torch.min(density_yx)
-    diff = high - low
-    density_yx = (density_yx - low) / diff
-    w_y = torch.div(density_yx, density_y)
-    #print("w", w_x.shape, w_x[0])
-    w_y = torch.pow(w_y, power)
-    scaling_factors_0 = w_y.unsqueeze(2).repeat(1, 1, k)
-    multiplier = torch.gather(scaling_factors_0, 1, nn[0].idx)
+#     # measure density with other cloud
+#     density_yx = torch.mean(nn[1].dists[:,:,:k2-1], dim=2)
+#     density_yx = 1 / (density_yx + eps)
+#     high, low = torch.max(density_yx), torch.min(density_yx)
+#     diff = high - low
+#     density_yx = (density_yx - low) / diff
+#     w_y = torch.div(density_yx, density_y)
+#     #print("w", w_x.shape, w_x[0])
+#     w_y = torch.pow(w_y, power)
+#     scaling_factors_0 = w_y.unsqueeze(2).repeat(1, 1, k)
+#     multiplier = torch.gather(scaling_factors_0, 1, nn[0].idx)
     
-    scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
-    scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
+#     scaled_dist_0 = torch.mul(nn[0].dists, multiplier)
+#     scaled_dist_0x, i0 = torch.min(scaled_dist_0, 2)
     
-    #print("ds", i1.shape, nn[0].idx.shape, i1.unsqueeze(2).repeat(1,1,k).shape, nn[1].dists.shape)
-    # reverse
+#     #print("ds", i1.shape, nn[0].idx.shape, i1.unsqueeze(2).repeat(1,1,k).shape, nn[1].dists.shape)
+#     # reverse
 
-    min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
-    min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+#     min_dist_1 = torch.gather(nn[1].dists, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+#     min_dist_0 = torch.gather(nn[0].dists, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
     
-    balanced_cd = torch.sum(torch.sqrt(min_dist_1)) + torch.sum(torch.sqrt(min_dist_0))
-    #balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
-    #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
-    batch_size, point_count, _ = x.shape
+#     balanced_cd = torch.sum(torch.sqrt(min_dist_1)) + torch.sum(torch.sqrt(min_dist_0))
+#     #balanced_cd = torch.sum(min_dist_1) + torch.sum(min_dist_0)
+#     #balanced_cd = torch.sum(min_dist_1) + torch.sum(nn[0].dists[:, :, 0])
+#     batch_size, point_count, _ = x.shape
 
     
 
 
-    # add a loss term for mismatched pairs
-    nn = chamferDist(
-        x, y, bidirectional=True, return_nn=True
-    )
+#     # add a loss term for mismatched pairs
+#     nn = chamferDist(
+#         x, y, bidirectional=True, return_nn=True
+#     )
 
-    eig_vals_x, eig_vects_x = points_normals.estimate_pointcloud_local_coord_frames(
-        x, neighborhood_size=k)
+#     eig_vals_x, eig_vects_x = points_normals.estimate_pointcloud_local_coord_frames(
+#         x, neighborhood_size=k)
 
-    eig_vals_y, eig_vects_y = points_normals.estimate_pointcloud_local_coord_frames(
-        y, neighborhood_size=k)
-    # eig_vals_x, eig_vects_x = estimate_pointcloud_local_coord_frames_relative(
-    #     x, y, neighborhood_size=k)
+#     eig_vals_y, eig_vects_y = points_normals.estimate_pointcloud_local_coord_frames(
+#         y, neighborhood_size=k)
+#     # eig_vals_x, eig_vects_x = estimate_pointcloud_local_coord_frames_relative(
+#     #     x, y, neighborhood_size=k)
 
-    # eig_vals_y, eig_vects_y = estimate_pointcloud_local_coord_frames_relative(
-    #     y, x, neighborhood_size=k)
+#     # eig_vals_y, eig_vects_y = estimate_pointcloud_local_coord_frames_relative(
+#     #     y, x, neighborhood_size=k)
 
-    corresponding_y_vals = eindex(eig_vals_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues")
-    corresponding_x_vals = eindex(eig_vals_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues")
+#     corresponding_y_vals = eindex(eig_vals_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues")
+#     corresponding_x_vals = eindex(eig_vals_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues")
 
-    #use matches from uniformCD instead
-    # corresponding_y_vals = eindex(eig_vals_y, i0, "batch [batch points] eigenvalues")
-    # corresponding_x_vals = eindex(eig_vals_x, i1, "batch [batch points] eigenvalues")
+#     #use matches from uniformCD instead
+#     # corresponding_y_vals = eindex(eig_vals_y, i0, "batch [batch points] eigenvalues")
+#     # corresponding_x_vals = eindex(eig_vals_x, i1, "batch [batch points] eigenvalues")
 
-    # corresponding_y_vects = eindex(eig_vects_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
-    # corresponding_x_vects = eindex(eig_vects_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
-    #print("x", x.shape, nn[0].dists.shape, nn[0].dists.shape, torch.squeeze(nn[1].idx, dim=-1).shape)
+#     # corresponding_y_vects = eindex(eig_vects_y, torch.squeeze(nn[0].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
+#     # corresponding_x_vects = eindex(eig_vects_x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] eigenvalues eigenvects")
+#     #print("x", x.shape, nn[0].dists.shape, nn[0].dists.shape, torch.squeeze(nn[1].idx, dim=-1).shape)
 
-    #print("sample eigen", eig_vects_x[0,:4,:,:], eig_vals_x[0,:4])
+#     #print("sample eigen", eig_vects_x[0,:4,:,:], eig_vals_x[0,:4])
 
-    eigen_val_dist_y = torch.sum(torch.square(eig_vals_x - corresponding_y_vals))
-    eigen_val_dist_x = torch.sum(torch.square(eig_vals_y - corresponding_x_vals))
+#     eigen_val_dist_y = torch.sum(torch.square(eig_vals_x - corresponding_y_vals))
+#     eigen_val_dist_x = torch.sum(torch.square(eig_vals_y - corresponding_x_vals))
 
-    # eigen_vect_dist_y = torch.sum(torch.square(eig_vects_x - corresponding_y_vects))
-    # eigen_vect_dist_x = torch.sum(torch.square(eig_vects_y - corresponding_x_vects))
+#     # eigen_vect_dist_y = torch.sum(torch.square(eig_vects_x - corresponding_y_vects))
+#     # eigen_vect_dist_x = torch.sum(torch.square(eig_vects_y - corresponding_x_vects))
 
-    # # calculate dot product between eigenvectors
-    # dot_product_y = einops.einsum(eig_vects_x, corresponding_y_vects, "b n p q, b n p q -> b n p")
-    # # ignore direction and take absolute value
-    # dot_product_y = torch.sum(1. - torch.abs(dot_product_y))
-    # dot_product_x = einops.einsum(eig_vects_y, corresponding_x_vects, "b n p q, b n p q -> b n p")
-    # # ignore direction and take absolute value
-    # dot_product_x = torch.sum(1. - torch.abs(dot_product_x))
-    # #print("dot", dot_product_x)
+#     # # calculate dot product between eigenvectors
+#     # dot_product_y = einops.einsum(eig_vects_x, corresponding_y_vects, "b n p q, b n p q -> b n p")
+#     # # ignore direction and take absolute value
+#     # dot_product_y = torch.sum(1. - torch.abs(dot_product_y))
+#     # dot_product_x = einops.einsum(eig_vects_y, corresponding_x_vects, "b n p q, b n p q -> b n p")
+#     # # ignore direction and take absolute value
+#     # dot_product_x = torch.sum(1. - torch.abs(dot_product_x))
+#     # #print("dot", dot_product_x)
 
-    #corresponding_y_points = eindex(x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] xyz")
-    #print("corresponding shape", corresponding_y_vals.shape, corresponding_y_vects.shape)
-    #print("mean", eigen_val_dist_x)
+#     #corresponding_y_points = eindex(x, torch.squeeze(nn[1].idx, dim=-1), "batch [batch points] xyz")
+#     #print("corresponding shape", corresponding_y_vals.shape, corresponding_y_vects.shape)
+#     #print("mean", eigen_val_dist_x)
 
-    #curvature_loss = (dot_product_x + dot_product_y)/1000 + (eigen_val_dist_x + eigen_val_dist_y)*1000
-    #curvature_loss = (eigen_val_dist_x + eigen_val_dist_y)*1000 + (eigen_vect_dist_x + eigen_vect_dist_y)/1000
-    curvature_loss = (eigen_val_dist_y)*500
+#     #curvature_loss = (dot_product_x + dot_product_y)/1000 + (eigen_val_dist_x + eigen_val_dist_y)*1000
+#     #curvature_loss = (eigen_val_dist_x + eigen_val_dist_y)*1000 + (eigen_vect_dist_x + eigen_vect_dist_y)/1000
+#     curvature_loss = (eigen_val_dist_y)*500
 
-    #print("curvature loss", curvature_loss)
+#     #print("curvature loss", curvature_loss)
 
-    #print("eig_vals_x", eig_vals_x.shape, eig_vects_x.shape, "eig_vals_y", eig_vals_y.shape, eig_vects_y.shape)
+#     #print("eig_vals_x", eig_vals_x.shape, eig_vects_x.shape, "eig_vals_y", eig_vals_y.shape, eig_vects_y.shape)
 
-    bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:, :, 0])
-    print("d", bidirectional_dist.item(), curvature_loss.item(), balanced_cd.item())
+#     bidirectional_dist = torch.sum(nn[0].dists[:,:,0]) + torch.sum(nn[1].dists[:, :, 0])
+#     print("d", bidirectional_dist.item(), curvature_loss.item(), balanced_cd.item())
 
-    return curvature_loss + bidirectional_dist
-    #return bidirectional_dist
+#     return curvature_loss + bidirectional_dist
+#     #return bidirectional_dist
 
 
 # get any of chamfer, EMD, reverse or jittered chamfer loss
@@ -2790,8 +2790,8 @@ def calc_dcd_correspondence_tensor(x, y, k=32, return_assignment=False, return_d
     corresponding_weights_0 = point_weights_1.unsqueeze(2).repeat(1,1,k).gather(1, nn[0].idx)
     corresponding_weights_1 = point_weights_0.unsqueeze(2).repeat(1,1,k).gather(1, nn[1].idx)
 
-    # corresponding_weights_0 = torch.mul(nn[0].dists, corresponding_weights_0)
-    # corresponding_weights_1 = torch.mul(nn[1].dists, corresponding_weights_1)
+    corresponding_weights_0 = torch.mul(nn[0].dists, corresponding_weights_0)
+    corresponding_weights_1 = torch.mul(nn[1].dists, corresponding_weights_1)
 
     _, i0 = torch.min(corresponding_weights_0, dim=2)
     _, i1 = torch.min(corresponding_weights_1, dim=2)
@@ -2811,18 +2811,22 @@ def calc_dcd_correspondence_tensor(x, y, k=32, return_assignment=False, return_d
     infocd =  (torch.sum(distances1) + torch.sum(distances2)) / 2
     infocd = infocd / (batch_size * point_count)
 
-    return infocd
+    # return infocd
 
     # dcd = torch.sum(torch.sqrt(min_dist_1)) + torch.sum(torch.sqrt(min_dist_0))
     # dcd = dcd / (batch_size * point_count)
 
-    # # corresponding_weights_1 = point_weights_0.gather(1, nn[1].idx)
+    # corresponding_weights_1 = point_weights_0.gather(1, nn[1].idx)
 
-    # #print("corres", corresponding_weights_0.shape, i0.shape, min_dist_0.shape)
+    #print("corres", corresponding_weights_0.shape, i0.shape, min_dist_0.shape)
 
-    # bidirectional_dist = torch.sum(torch.sqrt(nn[0].dists[:,:,0])) + torch.sum(torch.sqrt(nn[1].dists[:,:,0]))
-    # bidirectional_dist = bidirectional_dist / (batch_size * point_count)
 
     # print("dcd", dcd.item(), bidirectional_dist.item())
 
-    # return dcd
+    if return_assignment:
+        min_ind_1 = torch.gather(nn[1].idx, 2, i1.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+        min_ind_0 = torch.gather(nn[0].idx, 2, i0.unsqueeze(2).repeat(1,1,k))[:, :, 0]
+
+        return infocd, [min_ind_0.detach().cpu().numpy(), min_ind_1.detach().cpu().numpy()]
+
+    return infocd
